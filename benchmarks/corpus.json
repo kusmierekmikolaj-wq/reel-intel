@@ -1,0 +1,251 @@
+{
+ "note": "Scripts written for this benchmark (no third-party content). `caption` imitates the post caption the tool normally sees: names in it are passed to Whisper as hints. Terms marked in `terms` are the product names / jargon whose recall is measured separately. Scripts avoid numerals and larger number words on purpose: Whisper writes '50' where the script says 'fifty', which would count as an error although the word was heard.",
+ "items": [
+  {
+   "id": "pl01",
+   "lang": "pl",
+   "voice": "Microsoft Paulina Desktop",
+   "caption": "Jak zrobić automatyzację w Zapier i Notion #automatyzacja",
+   "terms": [
+    "Zapier",
+    "Notion"
+   ],
+   "text": "Cześć, w tym filmie pokażę ci, jak w kilka minut połączyć Zapier z Notion. Każdy nowy lead z formularza ląduje automatycznie w twojej bazie, a ty nie musisz kopiować ani jednego rekordu."
+  },
+  {
+   "id": "pl02",
+   "lang": "pl",
+   "voice": "Microsoft Adam",
+   "caption": "Meta Ads dla małych firm: ROAS i CPM wyjaśnione",
+   "terms": [
+    "Meta Ads",
+    "ROAS",
+    "CPM"
+   ],
+   "text": "Większość małych firm patrzy tylko na zasięg w Meta Ads. Prawda jest taka, że liczy się ROAS, czyli ile złotych wraca z jednej wydanej złotówki, oraz CPM, który mówi, ile płacisz za wyświetlenia swojej reklamy."
+  },
+  {
+   "id": "pl03",
+   "lang": "pl",
+   "voice": "Microsoft Paulina Desktop",
+   "caption": "Midjourney i Canva: grafika do rolek w 10 minut",
+   "terms": [
+    "Midjourney",
+    "Canva"
+   ],
+   "text": "Stworzyłam grafikę do rolki w Midjourney, a potem dopracowałam ją w Canva. Całość zajęła mi dosłownie chwilę, a efekt wygląda jak z agencji. Zapisz ten film, żeby nie zgubić instrukcji."
+  },
+  {
+   "id": "pl04",
+   "lang": "pl",
+   "voice": "Microsoft Adam",
+   "caption": "Trzy błędy w pierwszych sekundach reela #hook",
+   "terms": [
+    "hook",
+    "reel"
+   ],
+   "text": "Pierwsze sekundy decydują o wszystkim. Jeśli twój hook nie zatrzyma widza, reel zniknie z jego ekranu. Popełniasz zwykle te same błędy: zaczynasz od przedstawiania się, mówisz zbyt cicho i nie pokazujesz efektu."
+  },
+  {
+   "id": "pl05",
+   "lang": "pl",
+   "voice": "Microsoft Paulina Desktop",
+   "caption": "Sklep na Shopify kontra Allegro: co się opłaca",
+   "terms": [
+    "Shopify",
+    "Allegro"
+   ],
+   "text": "Sprzedaż na Allegro daje szybki start, ale własny sklep na Shopify daje ci klientów, których możesz zatrzymać. Zacznij od Allegro, a po pierwszych zamówieniach zbuduj własną markę."
+  },
+  {
+   "id": "pl06",
+   "lang": "pl",
+   "voice": "Microsoft Adam",
+   "caption": "ChatGPT pisze za mnie skrypty do filmów",
+   "terms": [
+    "ChatGPT"
+   ],
+   "text": "Poprosiłem ChatGPT o kilka pomysłów na filmy dla mojej branży. Większość była przeciętna, ale część okazała się świetna. Sekret polega na tym, że najpierw opisujesz swojego klienta, a dopiero potem pytasz."
+  },
+  {
+   "id": "pl07",
+   "lang": "pl",
+   "voice": "Microsoft Paulina Desktop",
+   "caption": "Montaż w CapCut: napisy i rytm",
+   "terms": [
+    "CapCut"
+   ],
+   "text": "W CapCut wystarczy jedno kliknięcie, żeby dodać napisy. Ale prawdziwa różnica to rytm: tnij często, usuwaj każdą pauzę i zostaw tylko to, co naprawdę ważne."
+  },
+  {
+   "id": "pl08",
+   "lang": "pl",
+   "voice": "Microsoft Adam",
+   "caption": "Ile naprawdę zarabia freelancer w 2026",
+   "terms": [],
+   "text": "Zapytałem kilkudziesięciu freelancerów, ile zarabiają miesięcznie. Typowy wynik był całkiem przyzwoity, ale najlepsi zarabiają kilkakrotnie więcej. Różnica? Specjalizacja i stałe umowy."
+  },
+  {
+   "id": "pl09",
+   "lang": "pl",
+   "voice": "Microsoft Paulina Desktop",
+   "caption": "Lead magnet, który działa #leadmagnet",
+   "terms": [
+    "lead magnet"
+   ],
+   "text": "Dobry lead magnet rozwiązuje jeden mały problem w kilka minut. Nie rób długiego poradnika, zrób checklistę na jedną stronę, którą ktoś naprawdę wykorzysta jeszcze dziś."
+  },
+  {
+   "id": "pl10",
+   "lang": "pl",
+   "voice": "Microsoft Adam",
+   "caption": "Dlaczego twoje filmy mają mało wyświetleń",
+   "terms": [],
+   "text": "Jeśli twoje filmy mają garść wyświetleń, problemem rzadko jest algorytm. Najczęściej to temat, który obchodzi tylko ciebie, i zakończenie, które nie daje powodu, żeby obejrzeć film do końca."
+  },
+  {
+   "id": "pl11",
+   "lang": "pl",
+   "voice": "Microsoft Paulina Desktop",
+   "caption": "Claude Code buduje aplikację od zera",
+   "terms": [
+    "Claude Code"
+   ],
+   "text": "Dziś poproszę Claude Code, żeby zbudował prostą aplikację do liczenia kalorii. Opiszę, co ma robić, a on sam utworzy pliki, uruchomi testy i naprawi błędy. Zobaczmy, ile to potrwa."
+  },
+  {
+   "id": "pl12",
+   "lang": "pl",
+   "voice": "Microsoft Adam",
+   "caption": "Bolt, Uber i prawda o zarobkach kierowców",
+   "terms": [
+    "Bolt",
+    "Uber"
+   ],
+   "text": "Kierowcy Bolt i Uber często mówią, że zarabiają krocie. Gdy odejmiesz paliwo, ubezpieczenie i amortyzację auta, zostaje mniej niż połowa tej kwoty."
+  },
+  {
+   "id": "en01",
+   "lang": "en",
+   "voice": "Microsoft Zira Desktop",
+   "caption": "Connect Zapier to Notion in five minutes #automation",
+   "terms": [
+    "Zapier",
+    "Notion"
+   ],
+   "text": "In this video I'll show you how to connect Zapier to Notion in a few minutes. Every new lead from your form lands in your database automatically, so you never copy a single row by hand again."
+  },
+  {
+   "id": "en02",
+   "lang": "en",
+   "voice": "Microsoft Zira Desktop",
+   "caption": "Meta Ads for small business: ROAS and CPM explained",
+   "terms": [
+    "Meta Ads",
+    "ROAS",
+    "CPM"
+   ],
+   "text": "Most small businesses only look at reach in Meta Ads. What actually matters is ROAS, the dollars you get back for every dollar spent, and CPM, which is what you pay for your ad impressions."
+  },
+  {
+   "id": "en03",
+   "lang": "en",
+   "voice": "Microsoft Zira Desktop",
+   "caption": "Midjourney plus Canva: Reels graphics in ten minutes",
+   "terms": [
+    "Midjourney",
+    "Canva"
+   ],
+   "text": "I made this graphic in Midjourney and then polished it in Canva. The whole thing took a few minutes and it looks like an agency did it. Save this video so you don't lose the steps."
+  },
+  {
+   "id": "en04",
+   "lang": "en",
+   "voice": "Microsoft Zira Desktop",
+   "caption": "Three mistakes in the first seconds of a Reel #hook",
+   "terms": [
+    "hook",
+    "Reel"
+   ],
+   "text": "The first seconds decide everything. If your hook doesn't stop the scroll, your Reel disappears from the screen. You're probably making the same mistakes: introducing yourself, speaking too quietly, and not showing the result."
+  },
+  {
+   "id": "en05",
+   "lang": "en",
+   "voice": "Microsoft Zira Desktop",
+   "caption": "Shopify store versus Etsy shop: which pays more",
+   "terms": [
+    "Shopify",
+    "Etsy"
+   ],
+   "text": "Selling on Etsy gives you a fast start, but your own Shopify store gives you customers you can keep. Start on Etsy, and after your first orders build your own brand."
+  },
+  {
+   "id": "en06",
+   "lang": "en",
+   "voice": "Microsoft Zira Desktop",
+   "caption": "I let ChatGPT write my video scripts",
+   "terms": [
+    "ChatGPT"
+   ],
+   "text": "I asked ChatGPT for a bunch of video ideas for my niche. Most were average, but a few were great. The secret is that you describe your customer first and only then ask the question."
+  },
+  {
+   "id": "en07",
+   "lang": "en",
+   "voice": "Microsoft Zira Desktop",
+   "caption": "Editing in CapCut: captions and rhythm",
+   "terms": [
+    "CapCut"
+   ],
+   "text": "In CapCut one click adds captions. But the real difference is rhythm: cut often, remove every pause, and keep only what truly matters."
+  },
+  {
+   "id": "en08",
+   "lang": "en",
+   "voice": "Microsoft Zira Desktop",
+   "caption": "What freelancers really earn in 2026",
+   "terms": [],
+   "text": "I asked dozens of freelancers what they earn every month. The typical result was decent, but the best ones earn several times more. The difference is specialization and retainer contracts."
+  },
+  {
+   "id": "en09",
+   "lang": "en",
+   "voice": "Microsoft Zira Desktop",
+   "caption": "A lead magnet that actually works #leadmagnet",
+   "terms": [
+    "lead magnet"
+   ],
+   "text": "A good lead magnet solves one small problem in a few minutes. Don't write a long guide, make a one page checklist that someone will actually use today."
+  },
+  {
+   "id": "en10",
+   "lang": "en",
+   "voice": "Microsoft Zira Desktop",
+   "caption": "Why your videos get so few views",
+   "terms": [],
+   "text": "If your videos get a handful of views, the algorithm is rarely the problem. It's usually a topic that only you care about and an ending that gives nobody a reason to watch to the end."
+  },
+  {
+   "id": "en11",
+   "lang": "en",
+   "voice": "Microsoft Zira Desktop",
+   "caption": "Claude Code builds an app from scratch",
+   "terms": [
+    "Claude Code"
+   ],
+   "text": "Today I'm asking Claude Code to build a simple calorie counting app. I describe what it should do and it creates the files, runs the tests and fixes the bugs by itself. Let's see how long it takes."
+  },
+  {
+   "id": "en12",
+   "lang": "en",
+   "voice": "Microsoft Zira Desktop",
+   "caption": "DoorDash and Uber Eats: what couriers really make",
+   "terms": [
+    "DoorDash",
+    "Uber Eats"
+   ],
+   "text": "DoorDash and Uber Eats couriers often say they make a fortune. After fuel, insurance and wear on the car, less than half of that is left."
+  }
+ ]
+}

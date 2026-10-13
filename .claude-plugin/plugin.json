@@ -1,0 +1,7 @@
+{
+  "name": "reel-intel",
+  "description": "Exact content of Instagram reels (speech, caption, metrics) in ~5 s per reel, strict QA, and a 'why did it go viral' analysis. Local, free, no API keys.",
+  "version": "0.4.0",
+  "license": "MIT",
+  "keywords": ["instagram", "reels", "transcript", "whisper", "content-analysis"]
+}

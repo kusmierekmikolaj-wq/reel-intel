@@ -1,0 +1,21 @@
+# Domain vocabulary. Copy this file into your data folder (reel-data/glossary.yaml) to customise it for your niche
+# (put your own names, brands and jargon there; the plugin never contains names of a specific creator).
+# `prompt`: passed to Whisper as initial_prompt, biases the spelling of names and jargon. One string, or per language:
+#           {default: ..., pl: ..., en: ...}; the language is detected first, then the matching prompt is used.
+# `fixes`: known mis-hearings, applied ONLY to the text shown in content_full.md (raw transcript.json is never edited)
+#          and listed in its reliability section. A fix with `lang:` is applied only to reels in that language.
+#          `reel.py qa` flags any remaining hit (T_GLOSSARY).
+prompt:
+  default: >-
+    ChatGPT, Claude Code, Cursor, n8n, Make.com, Gemini, UGC, Canva, Pinterest, Gmail, Instagram, Facebook, LinkedIn, Meta Ads, hook, watch time, lead magnet.
+  pl: >-
+    Meta Ads, hook, watch time, lead magnet, ChatGPT, Claude Code, Cursor, n8n, Make.com, Gemini, UGC, Canva, Pinterest,
+    Gmail, Instagram, reels, rolka, Facebook, LinkedIn.
+  en: >-
+    Meta Ads, Facebook Ads, Instagram Reels, ROAS, CPM, CPC, lead magnet, hook, watch time, ChatGPT, Claude, Gemini, UGC.
+fixes:
+  # single-quoted YAML: backslashes are literal, so \b really is a regex word boundary (in "double quotes" it would be a backspace)
+  - {lang: pl, wrong: '\bhuk(u|iem|i)?\b', right: hook, note: Whisper hears English hook as Polish huk}
+  - {lang: pl, wrong: '\bNate ?10\b', right: n8n, note: automation tool n8n}
+  - {lang: pl, wrong: '\bCloud Code\b', right: Claude Code, note: AI coding tool}
+  - {lang: pl, wrong: '\bMixport\b', right: Mixboard, note: Google Mixboard}

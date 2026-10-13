@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="color-scheme" content="light dark">
+<title>reel-intel</title>
+<style>
+:root { --bg:#fff; --alt:#f5f5f7; --ink:#1d1d1f; --muted:#6e6e73; --line:#d2d2d7; --blue:#0071e3; --blue-h:#0077ed; --link:#0066cc; --good:#1d8348; --good-bg:#e6f4ea; --bad:#c0392b; --bad-bg:#fdecea; }
+@media (prefers-color-scheme: dark) { :root { --bg:#1d1d1f; --alt:#2c2c2e; --ink:#f5f5f7; --muted:#a1a1a6; --line:#424245; --link:#2997ff; --good:#30d158; --good-bg:#10331c; --bad:#ff6961; --bad-bg:#3a1a18; } }
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { width: 340px; background: var(--bg); color: var(--ink); font: 400 14px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; letter-spacing: -0.012em; -webkit-font-smoothing: antialiased; }
+main { padding: 18px 18px 16px; }
+header { display: flex; align-items: center; gap: 11px; margin-bottom: 16px; }
+.logo { width: 34px; height: 34px; border-radius: 9px; display: block; }
+h1 { margin: 0; font-size: 17px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.15; }
+.conn { margin: 2px 0 0; font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.conn i { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); display: inline-block; }
+.conn.on i { background: var(--good); } .conn.off i { background: var(--bad); }
+.card { background: var(--alt); border-radius: 16px; padding: 14px 16px; }
+.eyebrow { margin: 0 0 2px; font-size: 12px; font-weight: 600; color: var(--muted); }
+h2 { margin: 0; font-size: 24px; line-height: 1.12; font-weight: 700; letter-spacing: -0.04em; overflow-wrap: anywhere; }
+.what { margin: 6px 0 0; font-size: 13px; color: var(--muted); }
+.field { margin-top: 16px; }
+label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin: 0 0 6px 2px; }
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; background: var(--alt); border-radius: 11px; padding: 3px; gap: 2px; }
+.seg button { all: unset; box-sizing: border-box; text-align: center; cursor: pointer; padding: 7px 4px; border-radius: 9px; font-size: 13px; font-weight: 600; color: var(--muted); min-height: 32px; }
+.seg button[aria-checked="true"] { background: var(--bg); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.18); }
+.seg button:focus-visible, .pill:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+.pill { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 100%; min-height: 46px; margin-top: 18px; border-radius: 980px; background: var(--blue); color: #fff; font: 600 15px -apple-system, "Segoe UI", system-ui, sans-serif; letter-spacing: -0.02em; transition: background .2s; }
+.pill:hover { background: var(--blue-h); } .pill[aria-disabled="true"] { opacity: .4; cursor: default; pointer-events: none; }
+.bar { height: 4px; border-radius: 4px; background: var(--alt); overflow: hidden; margin-top: 14px; }
+.bar i { display: block; height: 100%; width: 40%; border-radius: 4px; background: var(--blue); animation: slide 1.2s ease-in-out infinite; }
+@keyframes slide { 0% { transform: translateX(-110%); } 100% { transform: translateX(260%); } }
+@media (prefers-reduced-motion: reduce) { .bar i { animation: none; width: 100%; opacity: .6; } }
+.msg { margin: 12px 0 0; font-size: 13px; min-height: 18px; }
+.msg.ok { color: var(--good); font-weight: 600; } .msg.err { color: var(--bad); font-weight: 600; }
+.done { display: flex; gap: 12px; align-items: center; background: var(--good-bg); border-radius: 16px; padding: 14px 16px; margin-top: 14px; }
+.done .tick { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--good); color: #fff; display: grid; place-items: center; font-weight: 800; font-size: 16px; }
+.done b { display: block; font-size: 15px; letter-spacing: -0.02em; } .done span { color: var(--muted); font-size: 12px; }
+.open { display: block; text-align: center; margin-top: 12px; font-size: 14px; font-weight: 500; color: var(--link); text-decoration: none; }
+.open:hover { text-decoration: underline; }
+.alert { background: var(--bad-bg); color: var(--bad); border-radius: 12px; padding: 10px 12px; margin-top: 12px; font-size: 13px; font-weight: 600; }
+.foot { margin: 14px 0 0; font-size: 11px; color: var(--muted); text-align: center; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <img class="logo" src="icons/icon48.png" alt="">
+    <div><h1>reel-intel</h1><p class="conn" id="conn"><i></i><span id="conn_t"></span></p></div>
+  </header>
+
+  <section class="card" id="profile">
+    <p class="eyebrow" id="site"></p>
+    <h2 id="name"></h2>
+    <p class="what" id="what"></p>
+  </section>
+
+  <div class="field"><label id="l_n"></label>
+    <div class="seg" role="radiogroup" id="seg_n"><button type="button" role="radio" data-v="10">10</button><button type="button" role="radio" data-v="30">30</button><button type="button" role="radio" data-v="60">60</button><button type="button" role="radio" data-v="100">100</button></div>
+  </div>
+  <div class="field"><label id="l_lang"></label>
+    <div class="seg" role="radiogroup" id="seg_lang"><button type="button" role="radio" data-v="pl">Polski</button><button type="button" role="radio" data-v="en">English</button></div>
+  </div>
+
+  <button class="pill" id="go" type="button"></button>
+  <div class="bar" id="bar" hidden><i></i></div>
+  <p class="msg" id="msg" role="status" aria-live="polite"></p>
+
+  <div class="done" id="done" hidden><div class="tick" aria-hidden="true">✓</div><div><b id="done_t"></b><span id="done_s"></span></div></div>
+  <a class="open" id="openapp" href="#" target="_blank" rel="noopener" hidden></a>
+  <div class="alert" id="alert" hidden></div>
+
+  <p class="foot" id="foot"></p>
+</main>
+<script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>reel-intel</title>
+<link rel="icon" href="/logo.svg" type="image/svg+xml">
+<style>
+:root {
+  --bg: #ffffff; --alt: #f5f5f7; --tile: #ffffff; --ink: #1d1d1f; --muted: #6e6e73; --line: #d2d2d7;
+  --blue: #0071e3; --blue-hover: #0077ed; --link: #0066cc; --on-blue: #ffffff; --good: #1d8348; --bad: #c0392b;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI Variable Text", "Segoe UI", system-ui, "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #000000; --alt: #161617; --tile: #1d1d1f; --ink: #f5f5f7; --muted: #a1a1a6; --line: #38383a; --link: #2997ff; --good: #30d158; --bad: #ff6961; }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 64px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; } }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 400 17px/1.47 var(--font); letter-spacing: -0.022em; -webkit-font-smoothing: antialiased; }
+a { color: var(--link); text-decoration: none; } a:hover { text-decoration: underline; }
+:focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; border-radius: 8px; }
+.wrap { max-width: 1024px; margin-inline: auto; padding-inline: 22px; }
+.eyebrow { font-size: 1.05rem; font-weight: 600; color: var(--muted); margin: 0 0 6px; }
+
+/* navigation: thin, translucent, like a product site */
+nav { position: sticky; top: 0; z-index: 10; height: 48px; background: rgba(29,29,31,.82); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px); }
+nav .wrap { height: 48px; display: flex; align-items: center; gap: 28px; }
+nav .brand { color: #f5f5f7; font-weight: 600; font-size: 1.05rem; letter-spacing: -0.01em; margin-right: auto; display: inline-flex; align-items: center; gap: 9px; }
+nav .brand img { border-radius: 6px; display: block; }
+nav a.item { color: #e8e8ed; font-size: .8rem; }
+nav a.item:hover { color: #fff; text-decoration: none; }
+.seg { display: inline-flex; background: rgba(255,255,255,.14); border-radius: 980px; padding: 2px; }
+.seg button { all: unset; cursor: pointer; font-size: .75rem; font-weight: 600; color: #e8e8ed; padding: 4px 11px; border-radius: 980px; min-height: 24px; box-sizing: border-box; }
+.seg button[aria-pressed="true"] { background: #f5f5f7; color: #1d1d1f; }
+.seg button:focus-visible { outline: 2px solid #2997ff; outline-offset: 1px; }
+
+/* hero: one thought, large */
+.hero { background: #000; color: #f5f5f7; text-align: center; padding: 88px 0 72px; }
+.hero h1 { margin: 0 auto; max-width: 14ch; font-size: clamp(2.6rem, 8vw, 5rem); line-height: 1.04; font-weight: 700; letter-spacing: -0.045em; }
+.hero h1 span { background: linear-gradient(90deg, #2997ff, #bf5af2 55%, #ff375f); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.hero p.sub { margin: 20px auto 0; max-width: 34ch; font-size: clamp(1.15rem, 2.4vw, 1.55rem); line-height: 1.3; color: #a1a1a6; letter-spacing: -0.015em; }
+.cta { margin-top: 30px; display: flex; flex-wrap: wrap; gap: 14px 26px; justify-content: center; align-items: center; }
+.pill { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 22px; border-radius: 980px; background: var(--blue); color: var(--on-blue); font: 500 1.06rem var(--font); letter-spacing: -0.022em; transition: background .2s; }
+.pill:hover { background: var(--blue-hover); text-decoration: none; }
+.pill:disabled { opacity: .4; cursor: default; }
+.pill:focus-visible { outline: 3px solid #2997ff; outline-offset: 3px; }
+.more { color: #2997ff; font-size: 1.06rem; } .more::after { content: " ›"; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; max-width: 640px; margin: 56px auto 0; }
+.stats b { display: block; font-size: clamp(2rem, 6vw, 3.2rem); line-height: 1.05; font-weight: 700; letter-spacing: -0.04em; color: #f5f5f7; }
+.stats span { font-size: .95rem; color: #a1a1a6; }
+
+section.block { padding: 88px 0; }
+section.alt { background: var(--alt); }
+h2 { margin: 0; font-size: clamp(2rem, 5vw, 3rem); line-height: 1.08; font-weight: 700; letter-spacing: -0.04em; }
+.lead { margin: 12px 0 0; font-size: clamp(1.1rem, 2vw, 1.4rem); line-height: 1.32; color: var(--muted); max-width: 40ch; letter-spacing: -0.015em; }
+
+/* three signals */
+.three { display: grid; grid-template-columns: repeat(3, 1fr); gap: 36px; margin-top: 44px; }
+.three h3 { margin: 0 0 6px; font-size: 1.5rem; font-weight: 700; letter-spacing: -0.03em; }
+.three p { margin: 0; color: var(--muted); font-size: 1.02rem; }
+@media (max-width: 760px) { .three { grid-template-columns: 1fr; gap: 24px; } .stats { grid-template-columns: 1fr; } nav .wrap { gap: 16px; } nav a.item { display: none; } }
+
+/* tiles */
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin-top: 40px; }
+a.tile { display: flex; flex-direction: column; min-height: 250px; padding: 28px; border-radius: 28px; background: var(--tile); color: var(--ink); transition: transform .35s cubic-bezier(.2,.8,.2,1), box-shadow .35s; }
+a.tile:hover { text-decoration: none; transform: scale(1.015); box-shadow: 0 18px 40px rgba(0,0,0,.12); }
+a.tile .glyph { font-size: 3.6rem; line-height: 1; font-weight: 700; letter-spacing: -0.05em; background: linear-gradient(135deg, #2997ff, #bf5af2); -webkit-background-clip: text; background-clip: text; color: transparent; }
+a.tile h3 { margin: 14px 0 4px; font-size: 1.45rem; line-height: 1.15; font-weight: 700; letter-spacing: -0.03em; }
+a.tile .meta { color: var(--muted); font-size: .9rem; margin-top: 10px; }
+a.tile .about { margin: 0; color: var(--ink); opacity: .78; font-size: 1rem; line-height: 1.35; letter-spacing: -0.012em; }
+a.tile .go { margin-top: auto; padding-top: 18px; color: var(--link); font-size: 1.02rem; } a.tile .go::after { content: " ›"; }
+a.tile.mine .glyph { background: linear-gradient(135deg, #30d158, #2997ff); -webkit-background-clip: text; background-clip: text; color: transparent; }
+a.tile.wide { grid-column: span 2; background: #1d1d1f; color: #f5f5f7; justify-content: flex-end; }
+a.tile.wide .glyph { background: none; color: #f5f5f7; -webkit-text-fill-color: #f5f5f7; font-size: 2.6rem; }
+a.tile.wide h3 { font-size: 1.9rem; } a.tile.wide .meta { color: #a1a1a6; } a.tile.wide .go { color: #2997ff; }
+@media (max-width: 700px) { a.tile.wide { grid-column: auto; } }
+@media (prefers-color-scheme: dark) { a.tile.wide { background: #2c2c2e; } a.tile:hover { box-shadow: 0 18px 40px rgba(0,0,0,.5); } }
+
+/* scan */
+.panel { margin-top: 36px; background: var(--alt); border-radius: 28px; padding: 32px; }
+label { display: block; font-weight: 600; font-size: .95rem; margin: 18px 0 8px; }
+textarea, select, input { font: inherit; letter-spacing: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; width: 100%; min-width: 0; }
+textarea { min-height: 150px; resize: vertical; font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: .92rem; letter-spacing: 0; }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 560px) { .row { grid-template-columns: 1fr; } .panel { padding: 22px; } }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin-top: 24px; }
+.state { font-weight: 600; } .ok { color: var(--good); } .err { color: var(--bad); }
+.steps { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 22px; list-style: none; padding: 0; }
+.steps li { font-size: .78rem; color: var(--muted); padding-top: 10px; border-top: 4px solid var(--line); transition: border-color .3s, color .3s; }
+.steps li.on { border-color: var(--blue); color: var(--ink); font-weight: 600; } .steps li.done { border-color: var(--good); color: var(--ink); }
+@media (max-width: 560px) { .steps { grid-template-columns: 1fr 1fr; } }
+details { margin-top: 18px; } summary { cursor: pointer; font-weight: 600; min-height: 40px; display: flex; align-items: center; color: var(--link); }
+pre { margin: 12px 0 0; padding: 14px; background: var(--bg); border: 1px solid var(--line); border-radius: 14px; max-height: 260px; overflow: auto; font-size: .82rem; white-space: pre-wrap; letter-spacing: 0; }
+.btn2 { all: unset; cursor: pointer; color: var(--link); font-weight: 500; min-height: 40px; display: inline-flex; align-items: center; }
+.btn2:focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; border-radius: 8px; }
+iframe { width: 100%; height: 760px; border: 0; border-radius: 22px; background: var(--tile); margin-top: 16px; box-shadow: 0 0 0 1px var(--line); }
+footer { padding: 36px 0 56px; color: var(--muted); font-size: .8rem; border-top: 1px solid var(--line); }
+</style>
+</head>
+<body>
+<nav aria-label="reel-intel">
+  <div class="wrap">
+    <span class="brand"><img src="/logo.svg" alt="" width="22" height="22">reel-intel</span>
+    <a class="item" href="#analizy" data-t="nav_an"></a>
+    <a class="item" href="#scan" data-t="nav_scan"></a>
+    <span class="seg" role="group" aria-label="Language">
+      <button type="button" id="b_pl" aria-pressed="false">PL</button><button type="button" id="b_en" aria-pressed="false">EN</button>
+    </span>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <h1><span data-t="h1"></span></h1>
+    <p class="sub" data-t="hero_sub"></p>
+    <div class="cta">
+      <a class="pill" href="#scan" data-t="cta1"></a>
+      <a class="more" href="#analizy" data-t="cta2"></a>
+    </div>
+    <div class="stats" id="stats" hidden>
+      <div><b id="s_videos">0</b><span data-t="s_videos"></span></div>
+      <div><b id="s_acc">0</b><span data-t="s_acc"></span></div>
+      <div><b>14</b><span data-t="s_feat"></span></div>
+    </div>
+  </div>
+</header>
+
+<section class="block">
+  <div class="wrap">
+    <p class="eyebrow" data-t="f_eye"></p>
+    <h2 data-t="f_h"></h2>
+    <div class="three">
+      <div><h3 data-t="f1_h"></h3><p data-t="f1_p"></p></div>
+      <div><h3 data-t="f2_h"></h3><p data-t="f2_p"></p></div>
+      <div><h3 data-t="f3_h"></h3><p data-t="f3_p"></p></div>
+    </div>
+  </div>
+</section>
+
+<section class="block alt" id="analizy" hidden>
+  <div class="wrap">
+    <h2 data-t="lib_h"></h2>
+    <p class="lead" data-t="lib_sub"></p>
+    <div class="tiles" id="tiles"></div>
+  </div>
+</section>
+
+<section class="block" id="scan">
+  <div class="wrap">
+    <h2 data-t="scan_h"></h2>
+    <p class="lead" data-t="scan_sub"></p>
+    <div class="panel">
+      <label for="links" data-t="links"></label>
+      <textarea id="links" spellcheck="false"></textarea>
+      <div class="row">
+        <div><label for="lang" data-t="lang"></label><select id="lang"><option value="pl">Polski</option><option value="en">English</option></select></div>
+        <div><label for="limit" data-t="limit"></label><input id="limit" type="number" min="1" max="200" value="30"></div>
+      </div>
+      <div class="actions"><button class="pill" id="go" type="button"></button><span class="state" id="st" role="status" aria-live="polite"></span></div>
+      <ol class="steps" id="steps" hidden></ol>
+      <details id="help"><summary data-t="help"></summary>
+        <p style="color:var(--muted);margin:6px 0 0" data-t="help_text"></p>
+        <p style="margin-top:6px"><button class="btn2" id="copy" type="button"></button></p>
+      </details>
+      <details id="logbox" hidden><summary data-t="details"></summary><pre id="log"></pre></details>
+    </div>
+    <div id="result" hidden style="margin-top:44px">
+      <h2 data-t="result" style="font-size:2rem"></h2>
+      <p style="margin-top:8px"><a id="open" href="/page" target="_blank" rel="noopener" data-t="open_new"></a> <span style="color:var(--muted)">· <span id="count"></span></span></p>
+      <iframe id="frame" title="result"></iframe>
+    </div>
+  </div>
+</section>
+
+<footer><div class="wrap" data-t="foot"></div></footer>
+
+<script>
+const TOKEN = "{{TOKEN}}";
+const T = {
+  pl: { nav_an: "Analizy", nav_scan: "Nowy skan", h1: "Dlaczego te filmy wybuchają?", hero_sub: "Tekst, obraz i dźwięk każdego filmu. Liczone na tym komputerze, z uczciwą statystyką.",
+    cta1: "Nowy skan", cta2: "Zobacz analizy", s_videos: "przeanalizowanych filmów", s_acc: "kont", s_feat: "mierzonych cech",
+    f_eye: "Co mierzymy", f_h: "Nie tylko transkrypcja.", f1_h: "Tekst", f1_p: "Dosłowny zapis mowy z kontrolą jakości, która sama jest sprawdzana na wstrzykniętych usterkach.",
+    f2_h: "Obraz", f2_p: "Tempo cięć, twarz na początku, tekst na ekranie i napisy wypalone w filmie.", f3_h: "Dźwięk", f3_p: "Tempo mowy, głośność i barwa głosu.",
+    your_scan: "Twój skan", lib_h: "Gotowe analizy.", lib_sub: "Wyniki kont, które są już przeskanowane. Kliknij kafelek, aby otworzyć.", open: "Otwórz", compare_sub: "Co się powtarza, a co jest stylem jednego konta.", vids: "filmów",
+    scan_h: "Nowy skan.", scan_sub: "Wklej linki do wideo z Instagrama, TikToka, YouTube, X lub Facebooka. Wszystko liczy się na tym komputerze.",
+    links: "Linki (jeden w wierszu) lub wynik fragmentu kodu z przeglądarki", lang: "Język strony wyników", limit: "Maks. liczba wideo", go: "Skanuj",
+    help: "Mam profil, nie pojedyncze linki", help_text: "Najprościej: zainstaluj wtyczkę z folderu „extension” (chrome://extensions, Tryb dewelopera, Załaduj rozpakowane), otwórz profil i kliknij wtyczkę. Bez wtyczki: Instagram, TikTok i Facebook nie pozwalają programowi wylistować profilu. Otwórz profil w swojej przeglądarce (zalogowanej), naciśnij F12, wybierz Konsola, wklej poniższy kod i Enter, a potem wklej wynik (ze schowka) do pola wyżej. Kanał YouTube możesz wkleić wprost.",
+    copy: "Kopiuj kod do przeglądarki", copied: "Skopiowano", details: "Szczegóły przebiegu", result: "Wynik", open_new: "Otwórz stronę w nowej karcie", reels: "wideo w danych",
+    idle: "Gotowe do skanowania.", running: "Trwa skanowanie…", done: "Gotowe.", error: "Błąd, szczegóły poniżej.", none: "Wklej przynajmniej jeden poprawny link.",
+    steps: ["Pobieranie i tekst", "Skróty", "Obraz i dźwięk", "Kontrola jakości", "Strona wyników"],
+    foot: "Wszystko liczy się na tym komputerze. Wnioski to hipotezy z małych prób, nie dowody." },
+  en: { nav_an: "Analyses", nav_scan: "New scan", h1: "Why do these videos pop?", hero_sub: "The text, picture and sound of every video. Computed on this computer, with honest statistics.",
+    cta1: "New scan", cta2: "See the analyses", s_videos: "videos analysed", s_acc: "accounts", s_feat: "measured features",
+    f_eye: "What we measure", f_h: "Not only the transcript.", f1_h: "Text", f1_p: "A verbatim record of the speech with a quality check that is itself tested on injected faults.",
+    f2_h: "Picture", f2_p: "Editing pace, a face at the start, text on screen and captions burned into the video.", f3_h: "Sound", f3_p: "Speech pace, loudness and the brightness of the voice.",
+    your_scan: "Your scan", lib_h: "Finished analyses.", lib_sub: "Results of accounts that are already scanned. Click a tile to open it.", open: "Open", compare_sub: "What repeats, and what is one account's style.", vids: "videos",
+    scan_h: "New scan.", scan_sub: "Paste links to videos from Instagram, TikTok, YouTube, X or Facebook. Everything is computed on this computer.",
+    links: "Links (one per line) or the output of the browser snippet", lang: "Result page language", limit: "Max videos", go: "Scan",
+    help: "I have a profile, not single links", help_text: "Easiest: install the extension from the \"extension\" folder (chrome://extensions, Developer mode, Load unpacked), open the profile and click the extension. Without it: Instagram, TikTok and Facebook do not let a program list a profile. Open the profile in your own (logged-in) browser, press F12, choose Console, paste the code below and press Enter, then paste the result (from the clipboard) into the box above. A YouTube channel can be pasted as is.",
+    copy: "Copy the browser code", copied: "Copied", details: "Run details", result: "Result", open_new: "Open the page in a new tab", reels: "videos in the data",
+    idle: "Ready to scan.", running: "Scanning…", done: "Done.", error: "Error, details below.", none: "Paste at least one valid link.",
+    steps: ["Download and text", "Short versions", "Picture and sound", "Quality check", "Result page"],
+    foot: "Everything is computed on this computer. Conclusions are hypotheses from small samples, not proof." } };
+const $ = (id) => document.getElementById(id);
+let L = (navigator.language || 'en').startsWith('pl') ? 'pl' : 'en', LIB = [], STATE = null;
+const tx = (k) => T[L][k];
+
+function ui() {
+  document.documentElement.lang = L;
+  document.querySelectorAll('[data-t]').forEach((e) => { const v = T[L][e.dataset.t]; if (typeof v === 'string') e.textContent = v; });
+  $('go').textContent = tx('go'); $('copy').textContent = tx('copy');
+  $('b_pl').setAttribute('aria-pressed', L === 'pl'); $('b_en').setAttribute('aria-pressed', L === 'en');
+  $('lang').value = L; renderTiles(); renderSteps(STATE);
+  if (!STATE || STATE.state === 'idle') { $('st').textContent = tx('idle'); }
+}
+$('b_pl').onclick = () => { L = 'pl'; ui(); }; $('b_en').onclick = () => { L = 'en'; ui(); };
+
+function renderTiles() {
+  const box = $('tiles'); box.textContent = '';
+  $('analizy').hidden = !LIB.length; $('stats').hidden = !LIB.length;
+  let videos = 0, acc = 0;
+  for (const x of LIB) {
+    const a = document.createElement('a'); a.className = 'tile'; a.href = '/lib/' + encodeURIComponent(x.id); a.target = '_blank'; a.rel = 'noopener';
+    const g = document.createElement('div'), h = document.createElement('h3'), m = document.createElement('div'), go = document.createElement('div');
+    g.className = 'glyph'; m.className = 'meta'; go.className = 'go'; go.textContent = tx('open');
+    if (x.id === '_compare') { a.classList.add('wide'); g.textContent = '↔'; h.textContent = x.title; m.textContent = x.about || tx('compare_sub'); }
+    else if (x.user) {
+      g.textContent = (x.title.replace(/^@/, '')[0] || '+').toUpperCase(); h.textContent = x.title;
+      const ab = document.createElement('p'); ab.className = 'about'; ab.textContent = tx('your_scan');
+      m.textContent = x.reels ? `${x.reels} ${tx('vids')}` : ''; a.classList.add('mine');
+      a.append(g, h, ab, m, go); box.append(a); continue;
+    }
+    else if (x.name) {
+      g.textContent = x.letter || '·'; h.textContent = x.name;
+      const ab = document.createElement('p'); ab.className = 'about'; ab.textContent = x.about || '';
+      m.textContent = [x.reels ? `${x.reels} ${tx('vids')}` : '', x.platform].filter(Boolean).join(' · ');
+      a.append(g, h, ab, m, go); box.append(a); if (x.reels && x.letter !== '+') { videos += x.reels; acc += 1; } continue;
+    }
+    else {
+      const p = x.title.match(/^(.*?):\s*(.*?)\s*\((.*)\)\s*$/);
+      if (p) { g.textContent = (p[1].trim().split(/\s+/).pop() || '·').slice(0, 2); h.textContent = p[2]; m.textContent = `${x.reels} ${tx('vids')} · ${p[3]}`; }
+      else { g.textContent = '+'; h.textContent = x.title; m.textContent = x.reels ? `${x.reels} ${tx('vids')}` : ''; }
+      if (x.reels && p) { videos += x.reels; acc += 1; } else if (x.reels) { }
+    }
+    a.append(g, h, m, go); box.append(a);
+  }
+  $('s_videos').textContent = videos; $('s_acc').textContent = acc;
+}
+const loadLib = () => fetch('/api/library').then((r) => r.json()).then((j) => { LIB = j; renderTiles(); }).catch(() => {});
+loadLib();
+
+function renderSteps(s) {
+  const ol = $('steps'); ol.textContent = '';
+  const nums = (s && s.log || []).map((l) => (l.match(/^(\d)\/\d /) || [])[1]).filter(Boolean).map(Number);
+  const cur = nums.length ? Math.max(...nums) : 0;
+  ol.hidden = !cur;
+  tx('steps').forEach((name, i) => { const li = document.createElement('li'); li.textContent = name; const n = i + 1;
+    if (s && s.state === 'done') li.className = 'done'; else if (n < cur) li.className = 'done'; else if (n === cur) li.className = 'on'; ol.append(li); });
+}
+
+$('copy').addEventListener('click', async () => { const s = await (await fetch('/api/snippet')).text(); try { await navigator.clipboard.writeText(s); $('copy').textContent = tx('copied'); } catch (e) { $('logbox').hidden = false; $('logbox').open = true; $('log').textContent = s; } });
+$('go').addEventListener('click', async () => {
+  const r = await fetch('/api/run', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Token': TOKEN }, body: JSON.stringify({ text: $('links').value, lang: $('lang').value, limit: +$('limit').value || 30 }) });
+  const j = await r.json(); if (!j.ok) { $('st').textContent = j.msg === 'no valid links' ? tx('none') : j.msg; $('st').className = 'state err'; return; }
+  $('go').disabled = true; $('logbox').hidden = false; poll();
+});
+async function poll() {
+  const s = await (await fetch('/api/state')).json(); STATE = s;
+  $('log').textContent = s.log.join('\n'); $('log').scrollTop = 1e9;
+  $('st').textContent = s.state === 'running' ? `${tx('running')} ${s.elapsed}s` : s.state === 'done' ? tx('done') : s.state === 'error' ? tx('error') : tx('idle');
+  $('st').className = 'state ' + (s.state === 'done' ? 'ok' : s.state === 'error' ? 'err' : '');
+  $('count').textContent = `${s.reels} ${tx('reels')}`; renderSteps(s);
+  if (s.page && s.state !== 'running') { $('result').hidden = false; $('frame').src = '/page?' + Date.now(); }
+  if (s.state === 'done' && !window.__libDone) { window.__libDone = true; loadLib(); } if (s.state === 'running') window.__libDone = false;
+  if (s.state === 'running') setTimeout(poll, 1500); else $('go').disabled = false;
+}
+ui(); poll();
+</script>
+</body>
+</html>

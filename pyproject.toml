@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "reel-intel"
+version = "0.4.0"
+description = "Local-first short-video intelligence: exact transcripts, verified numbers and an honest answer to why some videos pop."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10,<3.13"
+dependencies = [
+  "yt-dlp[default,curl-cffi]",   # curl-cffi: browser impersonation, required for TikTok
+  "faster-whisper",
+  "av>=14,<17",
+  "pyyaml",
+  "numpy",
+  "opencv-python-headless>=4.9,<5",      # 5.x dropped the Haar face detector that `visuals` uses
+  "rapidocr-onnxruntime",
+  "nvidia-cublas-cu12; sys_platform == 'win32'",
+  "nvidia-cudnn-cu12==9.*; sys_platform == 'win32'",
+]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[project.scripts]
+reel-intel = "reel_intel.cli:main"
+reel-intel-mcp = "reel_intel.mcp_server:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+reel_intel = ["data/*", "demo/*", "demo/data/*/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[project.urls]
+Homepage = "https://github.com/kusmierekmikolaj-wq/reel-intel"
+Issues = "https://github.com/kusmierekmikolaj-wq/reel-intel/issues"

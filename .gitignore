@@ -1,0 +1,14 @@
+reel-data/
+.venv/
+__pycache__/
+*.pyc
+cookies*.txt
+config.yaml
+
+*.egg-info/
+reel-demo/
+build/
+dist/
+.pytest_cache/
+benchmarks/_work/
+benchmarks/_run.log

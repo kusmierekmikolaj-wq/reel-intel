@@ -1,0 +1,11 @@
+{
+  "name": "reel-intel",
+  "owner": { "name": "reel-intel contributors" },
+  "plugins": [
+    {
+      "name": "reel-intel",
+      "source": "./",
+      "description": "Local-first short-video intelligence: exact transcripts, verified numbers and an honest answer to why some videos pop. Free, no API keys."
+    }
+  ]
+}

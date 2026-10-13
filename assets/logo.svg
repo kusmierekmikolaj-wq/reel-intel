@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="reel-intel">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2997ff"/>
+      <stop offset="0.55" stop-color="#bf5af2"/>
+      <stop offset="1" stop-color="#ff375f"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="232" fill="url(#g)"/>
+  <!-- play triangle (rounded) -->
+  <path d="M243 413 L243 717 L398 565 Z" fill="#fff" stroke="#fff" stroke-width="60" stroke-linejoin="round"/>
+  <!-- three rising bars -->
+  <rect x="498" y="557" width="78" height="190" rx="39" fill="#fff"/>
+  <rect x="616" y="427" width="78" height="320" rx="39" fill="#fff"/>
+  <rect x="734" y="277" width="78" height="470" rx="39" fill="#fff"/>
+</svg>
