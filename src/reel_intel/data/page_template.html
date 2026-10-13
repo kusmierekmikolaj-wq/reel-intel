@@ -1,4 +1,5 @@
 <title>{{TITLE}}</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDI0IDEwMjQiIHJvbGU9ImltZyIgYXJpYS1sYWJlbD0icmVlbC1pbnRlbCI+CiAgPGRlZnM+CiAgICA8bGluZWFyR3JhZGllbnQgaWQ9ImciIHgxPSIwIiB5MT0iMCIgeDI9IjEwMjQiIHkyPSIxMDI0IiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iIzI5OTdmZiIvPgogICAgICA8c3RvcCBvZmZzZXQ9IjAuNTUiIHN0b3AtY29sb3I9IiNiZjVhZjIiLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjZmYzNzVmIi8+CiAgICA8L2xpbmVhckdyYWRpZW50PgogIDwvZGVmcz4KICA8cmVjdCB3aWR0aD0iMTAyNCIgaGVpZ2h0PSIxMDI0IiByeD0iMjMyIiBmaWxsPSJ1cmwoI2cpIi8+CiAgPCEtLSBwbGF5IHRyaWFuZ2xlIChyb3VuZGVkKSAtLT4KICA8cGF0aCBkPSJNMjQzIDQxMyBMMjQzIDcxNyBMMzk4IDU2NSBaIiBmaWxsPSIjZmZmIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iNjAiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4KICA8IS0tIHRocmVlIHJpc2luZyBiYXJzIC0tPgogIDxyZWN0IHg9IjQ5OCIgeT0iNTU3IiB3aWR0aD0iNzgiIGhlaWdodD0iMTkwIiByeD0iMzkiIGZpbGw9IiNmZmYiLz4KICA8cmVjdCB4PSI2MTYiIHk9IjQyNyIgd2lkdGg9Ijc4IiBoZWlnaHQ9IjMyMCIgcng9IjM5IiBmaWxsPSIjZmZmIi8+CiAgPHJlY3QgeD0iNzM0IiB5PSIyNzciIHdpZHRoPSI3OCIgaGVpZ2h0PSI0NzAiIHJ4PSIzOSIgZmlsbD0iI2ZmZiIvPgo8L3N2Zz4K">
 <style>
 /* Layout: one calm column. Findings first, then an optional topic chart, then the searchable library; each reel is a card whose full text opens in place.
    All visible text comes from the generator (pl/en), none is written here. */
@@ -164,11 +165,13 @@ input[type="search"]:focus { outline: 3px solid var(--accent); outline-offset: 2
 summary { font-size: 1rem; }
 footer { border-top: 0; margin-top: 72px; font-size: 0.88rem; max-width: 70ch; }
 @media (max-width: 640px) { header { padding: 52px 20px 44px; border-radius: 26px; } section { margin-top: 64px; } .card { padding: 24px 22px; grid-template-columns: 1fr; } .stat .views { font-size: 2.6rem; } .crow { grid-template-columns: 1fr; } }
+header .mark { display: block; margin: 0 auto 22px; border-radius: 14px; }
 </style>
 
 <div class="app" lang="{{LANG}}">
   <a class="skip" href="#biblioteka" data-i="skip"></a>
   <header>
+    <img class="mark" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDI0IDEwMjQiIHJvbGU9ImltZyIgYXJpYS1sYWJlbD0icmVlbC1pbnRlbCI+CiAgPGRlZnM+CiAgICA8bGluZWFyR3JhZGllbnQgaWQ9ImciIHgxPSIwIiB5MT0iMCIgeDI9IjEwMjQiIHkyPSIxMDI0IiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iIzI5OTdmZiIvPgogICAgICA8c3RvcCBvZmZzZXQ9IjAuNTUiIHN0b3AtY29sb3I9IiNiZjVhZjIiLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjZmYzNzVmIi8+CiAgICA8L2xpbmVhckdyYWRpZW50PgogIDwvZGVmcz4KICA8cmVjdCB3aWR0aD0iMTAyNCIgaGVpZ2h0PSIxMDI0IiByeD0iMjMyIiBmaWxsPSJ1cmwoI2cpIi8+CiAgPCEtLSBwbGF5IHRyaWFuZ2xlIChyb3VuZGVkKSAtLT4KICA8cGF0aCBkPSJNMjQzIDQxMyBMMjQzIDcxNyBMMzk4IDU2NSBaIiBmaWxsPSIjZmZmIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iNjAiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4KICA8IS0tIHRocmVlIHJpc2luZyBiYXJzIC0tPgogIDxyZWN0IHg9IjQ5OCIgeT0iNTU3IiB3aWR0aD0iNzgiIGhlaWdodD0iMTkwIiByeD0iMzkiIGZpbGw9IiNmZmYiLz4KICA8cmVjdCB4PSI2MTYiIHk9IjQyNyIgd2lkdGg9Ijc4IiBoZWlnaHQ9IjMyMCIgcng9IjM5IiBmaWxsPSIjZmZmIi8+CiAgPHJlY3QgeD0iNzM0IiB5PSIyNzciIHdpZHRoPSI3OCIgaGVpZ2h0PSI0NzAiIHJ4PSIzOSIgZmlsbD0iI2ZmZiIvPgo8L3N2Zz4K" width="56" height="56" alt="">
     <p class="kicker" id="kicker"></p>
     <h1 id="title"></h1>
     <p class="lead" id="lead"></p>
