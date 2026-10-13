@@ -186,6 +186,8 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/":
             html = (CODE / "app.html").read_text(encoding="utf-8").replace("{{TOKEN}}", TOKEN)
             return self._send(200, html)
+        if self.path == "/favicon.ico":
+            return self._send(200, (CODE / "favicon.png").read_bytes(), "image/png")
         if self.path == "/logo.svg":
             return self._send(200, (CODE / "logo.svg").read_bytes(), "image/svg+xml")
         if self.path == "/api/ping":                                              # lets the browser extension find the app on its port

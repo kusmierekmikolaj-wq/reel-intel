@@ -6,6 +6,7 @@ headline numbers, topic chart (needs topics.csv), timing and comment checks, adv
 Reels that could not be downloaded are read from data/<id>/page_scrape.json
 ({"id","url","views","likes","comments","date","dur","caption","about","cta"}).
 """
+import base64
 import datetime as dt
 import json
 import re
@@ -15,6 +16,9 @@ from pathlib import Path
 from .common import CFG, CODE, DATA, WORK, apply_fixes, jload, near_duplicate, restore_diacritics, visual_fields
 from .analysis import feature_table
 from .report import perm_p, spearman
+
+# the tab icon, embedded so that the page works as a single saved file; it must sit in <head>, not in <body>
+ICON_LINK = '<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,' + base64.b64encode((CODE / "logo.svg").read_bytes()).decode() + '">'
 
 LANG = CFG.get("ui_language", "pl") if CFG.get("ui_language") in ("pl", "en") else "pl"
 DEC, K, M = (",", " tys.", " mln") if LANG == "pl" else (".", "k", "M")
@@ -312,8 +316,7 @@ def main():
     frag = tpl.replace("{{TITLE}}", payload["title"]).replace("{{LANG}}", LANG).replace("/*DATA*/null", json.dumps(payload, ensure_ascii=False))
     (WORK / "page.fragment.html").write_text(frag, encoding="utf-8")
     (WORK / "Reele.html").write_text(
-        f'<!doctype html><html lang="{LANG}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
-        "</head><body>" + frag + "</body></html>", encoding="utf-8")
+        f'<!doctype html><html lang="{LANG}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">' + ICON_LINK + "</head><body>" + frag + "</body></html>", encoding="utf-8")
     print(f"Reele.html ({LANG}): {len(reels)} reels ({n_sc} with views), profile @{handle}, median {compact(med) if med else '-'}")
 
 
