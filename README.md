@@ -22,7 +22,8 @@ reel-intel run links.txt --open
 - **Everything written on the screen** (`reel-intel visuals`, `reel-intel report screen`): GitHub repositories, skill and tool names, commands and files are read from the video frames of every video, not only the silent ones, and listed with the minute they appear (candidates: OCR errs, so check them).
 - **Long recordings**: a 30-60 minute video is transcribed from its audio only, never from the platform's automatic captions (a 37-minute test took about 13 minutes on a mid-range GPU).
 - **Compare accounts**: `reel-intel compare` shows which patterns repeat across profiles and which are one account's style. In our test on 6 accounts (262 videos) no format feature repeated, which is itself the point: see [docs/CASE_STUDY.md](docs/CASE_STUDY.md).
-- **Fast**: about 5 s per video for the transcript (only audio is downloaded), plus a few seconds for the picture analysis (a small copy of the video, 480p at most; `--no-visuals` skips it), 4 in parallel. On clean synthetic speech the pipeline reaches about 1% word error and 91-94% recall of names and jargon; real-speaker accuracy is not yet measured: [docs/BENCHMARKS.md](docs/BENCHMARKS.md).
+- **Fast**: about 5 s per video for the transcript (only audio is downloaded), plus 30-70 s per video for reading the screen (a small copy of the video, 480p at most; `--no-visuals` skips both), 4 downloads in parallel. Accuracy: on clean synthetic speech about 1% word error and 91-94% recall of names and jargon; on four real talks with human-made subtitles (English and Polish) 4.0% of the subtitle words are missed and the disagreement with the edited subtitles is 8.1% (an upper bound). Short noisy reels are not measured yet: [docs/BENCHMARKS.md](docs/BENCHMARKS.md).
+- **One file for an AI agent**: `reel-intel report digest` (also written by `run`) puts the names to check, every video's speech, its on-screen text and its caption in one document, ready to paste into an agent with the question "how can we use this?". Automation: [docs/N8N.md](docs/N8N.md).
 - **Works with Claude, does not need Claude**: a Claude Code plugin, an MCP server and a standalone CLI share the same code.
 
 ## Commands
@@ -33,7 +34,7 @@ reel-intel run links.txt --open
 | `extension/` | a Chrome/Edge extension: one click on a profile page collects the links and view counts and starts the scan in the local app ([extension/README.md](extension/README.md)) |
 | `snippet` | prints a browser-console snippet that copies a profile's links and view counts (`grid.tsv`) from your logged-in browser |
 | `demo`, `doctor` | try it with synthetic data; health check with one-line fixes |
-| `scan`, `shorten`, `qa`, `report`, `page` | the individual steps. `shorten`: an automatic short version of every video (hook, key sentences, call to action, on-screen text; every line is quoted from the recording). `report`: `groups`, `timing`, `hooks`, `features`, `texts`, `content`, `screen`, `csv`, `clean` |
+| `scan`, `shorten`, `qa`, `report`, `page` | the individual steps. `shorten`: an automatic short version of every video (hook, key sentences, call to action, on-screen text; every line is quoted from the recording). `report`: `groups`, `timing`, `hooks`, `features`, `texts`, `content`, `screen`, `digest`, `csv`, `clean` |
 | `compare FOLDER FOLDER ...` | several profiles side by side: what repeats |
 | `score script.txt` | check your own script against what your data clearly shows and against the most similar scanned videos |
 | `watch SOURCE [--alert 5]` | scan what is new, flag videos that pop, append to `digest.md` ([docs/MONITORING.md](docs/MONITORING.md)) |

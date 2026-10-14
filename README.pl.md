@@ -23,7 +23,8 @@ reel-intel run linki.txt --lang pl --open
 - **Wszystko, co napisano na ekranie** (`reel-intel visuals`, `reel-intel report screen`): repozytoria GitHub, nazwy skilli i narzędzi, komendy i pliki są odczytywane z klatek każdego filmu, nie tylko tych bez mowy, i wypisane z minutą pojawienia się (to kandydaci: OCR się myli, więc sprawdź je w nagraniu).
 - **Długie nagrania**: film 30–60 minut jest transkrybowany wyłącznie z dźwięku, nigdy z automatycznych napisów platformy (test 37 minut trwał ok. 13 minut na średniej karcie graficznej).
 - **Porównanie kont** (`reel-intel compare`): co powtarza się na różnych profilach, a co jest stylem jednego konta. Na 6 kontach (262 filmy) żadna cecha formatu się nie powtórzyła: [docs/CASE_STUDY.md](docs/CASE_STUDY.md).
-- **Szybko**: ok. 5–7 s na wideo dla transkrypcji (pobierany jest tylko dźwięk), plus kilka sekund analizy obrazu (mała kopia wideo, najwyżej 480p; `--no-visuals` ją pomija), 4 równolegle. Na czystej mowie syntetycznej ok. 1% błędnych słów i 91–94% rozpoznanych nazw; dokładność na prawdziwych mówcach nie jest jeszcze zmierzona: [docs/BENCHMARKS.md](docs/BENCHMARKS.md).
+- **Szybko**: ok. 5–7 s na wideo dla transkrypcji (pobierany jest tylko dźwięk), plus 30–70 s na wideo na odczyt ekranu (mała kopia wideo, najwyżej 480p; `--no-visuals` pomija oba), 4 pobierania równolegle. Dokładność: na czystej mowie syntetycznej ok. 1% błędnych słów i 91–94% rozpoznanych nazw; na czterech prawdziwych wystąpieniach z napisami pisanymi przez ludzi (angielski i polski) brakuje 4,0% słów napisów, a rozbieżność z zredagowanymi napisami to 8,1% (górna granica). Krótkie zaszumione rolki nie są jeszcze zmierzone: [docs/BENCHMARKS.md](docs/BENCHMARKS.md).
+- **Jeden plik dla agenta AI**: `reel-intel report digest` (zapisuje go też `run`) łączy w jednym dokumencie nazwy do sprawdzenia, mowę każdego filmu, tekst z ekranu i opis, gotowe do wklejenia agentowi z pytaniem „jak to wykorzystać?”. Automatyzacja: [docs/N8N.md](docs/N8N.md).
 
 ## Polecenia
 | polecenie | co robi |
@@ -33,7 +34,7 @@ reel-intel run linki.txt --lang pl --open
 | `extension/` | wtyczka do Chrome i Edge: jedno kliknięcie na stronie profilu zbiera linki i liczby wyświetleń i uruchamia skan w aplikacji ([extension/README.md](extension/README.md)) |
 | `snippet` | kod do konsoli zalogowanej przeglądarki, który kopiuje linki i liczby wyświetleń z profilu (`grid.tsv`) |
 | `demo`, `doctor` | próba na danych przykładowych; kontrola środowiska z jednolinijkowymi poprawkami |
-| `scan`, `shorten`, `qa`, `report`, `page` | poszczególne kroki. `report`: `groups`, `timing`, `hooks`, `features`, `texts`, `content`, `screen`, `csv`, `clean` |
+| `scan`, `shorten`, `qa`, `report`, `page` | poszczególne kroki. `report`: `groups`, `timing`, `hooks`, `features`, `texts`, `content`, `screen`, `digest`, `csv`, `clean` |
 | `compare FOLDER FOLDER ...` | kilka profili obok siebie |
 | `score scenariusz.txt` | ocena własnego scenariusza względem tego, co dane wyraźnie pokazują, i najbardziej podobnych filmów |
 | `watch ŹRÓDŁO [--alert 5]` | skan nowości, alert gdy film wybuchnie, dopisuje do `digest.md` ([docs/MONITORING.md](docs/MONITORING.md)) |
