@@ -72,6 +72,9 @@ def fetch(url):
     if not src:
         return rid, "audio missing after download"
     c = run(["ffmpeg", "-y", "-i", str(src[0]), "-vn", "-ac", "1", "-ar", "16000", str(d / "audio.wav")])
+    if not (d / "audio.wav").exists() and "any stream" in (c.stderr or ""):          # a video with no sound track at all: treat as silence, not as a failure
+        secs = max(1.0, float(meta.get("duration") or 1))
+        run(["ffmpeg", "-y", "-f", "lavfi", "-i", "anullsrc=r=16000:cl=mono", "-t", f"{secs:.2f}", str(d / "audio.wav")])
     for p in src:
         p.unlink()
     return rid, None if (d / "audio.wav").exists() else c.stderr[-300:]

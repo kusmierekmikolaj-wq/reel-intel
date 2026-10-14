@@ -4,7 +4,7 @@ The text comes from OCR of the video's frames (`visuals.screen_text`). OCR is no
 is a CANDIDATE with the time it appeared; the report says so and links the time so a person can check it on the video.
 
   repos(lines)   "github.com/owner/name" anywhere, and a bare "owner/name" only when the same moment also shows the word github / repo / git clone
-  tokens(lines)  slash commands (/plugin), hyphenated identifiers (frontend-design), files (SKILL.md, CLAUDE.md, package.json)
+  tokens(lines)  slash commands (/plugin), hyphenated identifiers alone on a line (frontend-design), files (SKILL.md, CLAUDE.md, package.json)
   known(lines, names)  tools from a list (the glossary): "Claude Code", "n8n", "Cursor" ...
 """
 import re
@@ -73,6 +73,8 @@ def tokens(lines):
                 if key in seen or key in COMMON_HYPHENATED or (kind == "name" and len(tok) < 6):
                     continue
                 if kind == "name" and not SKILL_HINT.search(_near_text(lines, t)):
+                    continue
+                if kind == "name" and not re.fullmatch(r"[\W_]*" + re.escape(tok) + r"[\W_]*", FILE.sub("", SLASH.sub("", text)).strip()):     # a name in a list or a tree stands alone on its line; "play-based learning" inside a sentence is prose
                     continue
                 seen.add(key)
                 out.append({"token": tok, "kind": kind, "t": t})
