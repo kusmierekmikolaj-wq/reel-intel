@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "reel-intel"
-version = "0.4.0"
+version = "0.4.1"
 description = "Local-first short-video intelligence: exact transcripts, verified numbers and an honest answer to why some videos pop."
 readme = "README.md"
 license = { text = "MIT" }

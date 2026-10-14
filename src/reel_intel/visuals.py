@@ -150,6 +150,42 @@ def audio_stats(d):
     return {"rms_db": round(20 * float(np.log10(rms)), 1), "centroid_hz": round(sum(cents) / len(cents)) if cents else None}
 
 
+def screen_text(d, every=1.0, max_frames=300):
+    """Everything written on the screen, for videos WITH speech too (names of skills and tools, GitHub repositories, commands).
+    One frame a second; a frame that looks like the last one read is skipped; identical lines are kept once, with the time of the first sighting.
+    Saved as screen_text.json: {"lines": [{"t", "text"}], "mentions": {repos, tokens, known}}"""
+    import cv2
+    import numpy as np
+    from .common import glossary_prompt
+    from .common import near_duplicate
+    from . import screenmine
+    video = find_video(d)
+    cap = cv2.VideoCapture(str(video))
+    fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
+    dur = (cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0) / fps
+    if dur <= 0:
+        raise ValueError("video could not be read")
+    step = max(every, dur / max_frames)
+    prev, lines = None, []
+    for t in np.arange(0.3, dur, step):
+        cap.set(cv2.CAP_PROP_POS_MSEC, float(t) * 1000)
+        ok, img = cap.read()
+        if not ok:
+            continue
+        small = cv2.resize(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY), (54, 96)).astype("int16")
+        if prev is not None and abs(small - prev).mean() < 3:
+            continue
+        prev = small
+        for text, _y in read_text(img):
+            if not any(near_duplicate(text, x["text"]) for x in lines):
+                lines.append({"t": round(float(t), 1), "text": text})
+    cap.release()
+    f = jload(d / "features.json")
+    names = [n.strip() for n in glossary_prompt(f.get("language")).split(",") if n.strip()]
+    mentions = screenmine.mine([(x["t"], x["text"]) for x in lines], names)
+    return {"lines": lines, "mentions": mentions, "frames_step_s": round(float(step), 2)}
+
+
 def words_of(texts, minlen=4):
     return [w for t in texts for w in re.findall(r"[^\W\d_]+", fold(t)) if len(w) >= minlen]
 
@@ -199,7 +235,8 @@ def analyse(d):
 
 
 def run_all(limit=None):
-    ids = [d for d in sorted(DATA.iterdir()) if (d / "features.json").exists() and (d / "transcript.json").exists() and not (d / "visual.json").exists()]
+    ids = [d for d in sorted(DATA.iterdir()) if (d / "features.json").exists() and (d / "transcript.json").exists()
+           and not ((d / "visual.json").exists() and (d / "screen_text.json").exists())]
     if limit:
         ids = ids[:limit]
     if not ids:
@@ -216,7 +253,10 @@ def run_all(limit=None):
             failed += 1
             continue
         try:
-            (d / "visual.json").write_text(json.dumps(analyse(d), ensure_ascii=False, indent=1), encoding="utf-8")
+            if not (d / "visual.json").exists():
+                (d / "visual.json").write_text(json.dumps(analyse(d), ensure_ascii=False, indent=1), encoding="utf-8")
+            if not (d / "screen_text.json").exists():
+                (d / "screen_text.json").write_text(json.dumps(screen_text(d), ensure_ascii=False, indent=1), encoding="utf-8")
             ok += 1
         except Exception as e:
             print(f"[{d.name}] failed: {e}")

@@ -538,3 +538,31 @@ def test_every_scan_gets_its_own_folder_and_tile(tmp_path, monkeypatch):
     (tmp_path / "other").mkdir()                                                                 # a folder without a page is not a tile
     monkeypatch.setattr(server, "LIBRARY", None)
     assert [(x["id"], x["title"], x.get("user")) for x in server.library()] == [("scan:bmw", "@bmw", True)]
+
+
+def test_repeats_must_be_consecutive_or_dense_to_count_as_a_loop():
+    from reel_intel import qa
+    def seg(text, start):
+        return {"start": start, "end": start + 1, "text": text, "words": [{"w": w, "s": start, "e": start + 1, "p": 0.9} for w in text.split()]}
+    norm = lambda segs: [" ".join(s["text"].lower().split()) for s in segs]
+    scattered = [seg("to the moon", t) for t in (100, 400, 900)] + [seg(f"other words {i}", i * 10 + 5) for i in range(30)]
+    scattered.sort(key=lambda s: s["start"])
+    assert qa.repeat_runs(scattered, norm(scattered)) == []                              # the same phrase now and then over a long talk is speech
+    loop = [seg("we will go there", t) for t in (10, 11, 12, 13)]
+    assert [(r[0], r[1]) for r in qa.repeat_runs(loop, norm(loop))] == [("we will go there", 4)]       # four in a row is a loop
+    dense = [seg("thank you very much", 0), seg("and then", 5), seg("thank you very much", 10), seg("so", 12), seg("thank you very much", 20), seg("ok", 22), seg("thank you very much", 30)]
+    assert [(r[0], r[1]) for r in qa.repeat_runs(dense, norm(dense))] == [("thank you very much", 4)]  # four within 45 s is a loop too
+
+
+def test_screen_mining_finds_repos_and_skill_names_but_not_noise():
+    from reel_intel import screenmine as s
+    lines = [(2.0, "github.com/anthropics/claude-code"), (5.0, "npx skills add"), (5.5, "vercel-labs/agent-skills"), (8.0, "12/10 wynik 3/4"),
+             (9.0, "/plugin marketplace add"), (9.5, "frontend-design   SKILL.md"), (12.0, "GitHub / obra / superpowers"), (20.0, "and/or www.instagram.com/nasa/reel"),
+             (40.0, "tail-tisk"), (41.0, "capital-expansion")]
+    m = s.mine(lines, ["Claude Code", "n8n"])
+    assert [r["repo"] for r in m["repos"]] == ["anthropics/claude-code", "obra/superpowers", "vercel-labs/agent-skills"] or \
+        {r["repo"] for r in m["repos"]} == {"anthropics/claude-code", "obra/superpowers", "vercel-labs/agent-skills"}
+    toks = {x["token"] for x in m["tokens"]}
+    assert {"/plugin", "SKILL.md", "frontend-design"} <= toks                       # skill-like, with a hint word on the screen
+    assert "tail-tisk" not in toks and "capital-expansion" not in toks              # random OCR words far from any hint
+    assert [k["name"] for k in m["known"]] == ["Claude Code"]

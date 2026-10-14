@@ -7,6 +7,7 @@
   reel.py report hooks            # hook type (from the first 3 s of speech) vs views
   reel.py report texts            # TEKSTY_REELI.md (exact text of every reel) + SKROTY_REELI.md (all short versions)
   reel-intel report content        # rewrite every content_full.md from stored data (after a language or glossary change)
+  reel-intel report screen         # NA_EKRANIE.md / ON_SCREEN.md: GitHub repositories, skill and tool names read from the screens (after `reel-intel visuals`)
   reel-intel report csv            # reels.csv for Excel
   reel.py report clean [--yes]    # list (or delete) reel folders without audio = failed/partial scans
 topics.csv (id,group) is written by Claude when it labels the reels (see skill why-it-went-viral).
@@ -231,6 +232,66 @@ def texts(F):
     print(f"{K['files'][0]} + {K['files'][1]}: {len(rows)} videos")
 
 
+SCREEN_LABELS = {
+    "pl": {"file": "NA_EKRANIE.md", "h1": "Co pokazano na ekranie", "intro": "Tekst odczytany z klatek filmów (OCR, jedna klatka na sekundę) i to, co w nim wyszukano. OCR się myli, więc to **kandydaci**: sprawdź każdy w nagraniu o podanej minucie.",
+           "sum": "Podsumowanie", "reels": "filmów z odczytem ekranu", "withrepo": "filmów z repozytorium GitHub na ekranie", "repos": "Repozytoria GitHub (na ekranie)", "tokens": "Nazwy skilli, komendy i pliki (kandydaci)",
+           "known": "Znane narzędzia ze słownika", "none": "brak", "where": "w filmach", "per": "Po filmach (od najczęściej oglądanych)", "lines": "Tekst na ekranie (początek)", "views": "wyświetleń"},
+    "en": {"file": "ON_SCREEN.md", "h1": "What was shown on screen", "intro": "Text read from the video frames (OCR, one frame a second) and what was found in it. OCR makes mistakes, so these are **candidates**: check each one in the video at the time given.",
+           "sum": "Summary", "reels": "videos with the screen read", "withrepo": "videos with a GitHub repository on screen", "repos": "GitHub repositories (on screen)", "tokens": "Skill names, commands and files (candidates)",
+           "known": "Known tools from the glossary", "none": "none", "where": "in videos", "per": "Per video (most viewed first)", "lines": "On-screen text (start)", "views": "views"},
+}
+
+
+def screen_report(F):
+    """one file with everything that was written on the screens: repositories, skill / tool names, commands (needs `reel-intel visuals` first)"""
+    from collections import defaultdict
+    from .common import CFG
+    K = SCREEN_LABELS.get(CFG.get("ui_language"), SCREEN_LABELS["en"])
+    rows = []
+    for rid, f in F.items():
+        p = DATA / rid / "screen_text.json"
+        if p.exists():
+            rows.append((rid, f, jload(p)))
+    if not rows:
+        print("no screen_text.json yet: run `reel-intel visuals` first")
+        return
+    rows.sort(key=lambda r: -(r[1].get("views") or 0))
+    mm = lambda t: f"{int(t // 60)}:{int(t % 60):02d}"
+    from . import screenmine
+    from .common import glossary_prompt
+    repos, toks, known = defaultdict(list), defaultdict(list), defaultdict(list)
+    for rid, f, s in rows:
+        names = [n.strip() for n in glossary_prompt(f.get("language")).split(",") if n.strip()]
+        s["mentions"] = screenmine.mine([(x["t"], x["text"]) for x in s["lines"]], names)
+        for r in s["mentions"]["repos"]:
+            repos[r["repo"].lower()].append((rid, r["t"], r["repo"]))
+        for x in s["mentions"]["tokens"]:
+            toks[x["token"].lower()].append((rid, x["t"], x["token"]))
+        for x in s["mentions"]["known"]:
+            known[x["name"]].append((rid, x["t"], x["name"]))
+    fmt = lambda d: [f"- `{v[0][2]}`: {K['where']} {', '.join(sorted({x[0] for x in v}))} ({len(v)}x)" for _k, v in sorted(d.items(), key=lambda kv: -len(kv[1]))]
+    L = [f"# {K['h1']}", "", K["intro"], "", f"## {K['sum']}", "",
+         f"- {len(rows)} {K['reels']}", f"- {sum(1 for _, _, s in rows if s['mentions']['repos'])} {K['withrepo']}",
+         "", f"## {K['repos']}", ""] + (fmt(repos) or [f"- {K['none']}"]) + ["", f"## {K['known']}", ""] + (fmt(known) or [f"- {K['none']}"]) + \
+        ["", f"## {K['tokens']}", ""] + (fmt(toks)[:60] or [f"- {K['none']}"]) + ["", f"## {K['per']}", ""]
+    for rid, f, s in rows:
+        m = s["mentions"]
+        L.append(f"### {rid}: {int(f['views']):,} {K['views']}" if f.get("views") else f"### {rid}")
+        L.append(f"{f.get('url')}")
+        if m["repos"]:
+            L.append("- GitHub: " + ", ".join(f"`{r['repo']}` ({mm(r['t'])})" for r in m["repos"]))
+        if m["known"]:
+            L.append("- " + K["known"] + ": " + ", ".join(f"{x['name']} ({mm(x['t'])})" for x in m["known"]))
+        if m["tokens"]:
+            L.append("- " + K["tokens"] + ": " + ", ".join(f"`{x['token']}` ({mm(x['t'])})" for x in m["tokens"][:12]))
+        lines = [x["text"] for x in s["lines"]][:14]
+        if lines:
+            L.append("- " + K["lines"] + ": " + " / ".join(lines))
+        L.append("")
+    (WORK / K["file"]).write_text("\n".join(L), encoding="utf-8")
+    print(f"{K['file']}: {len(rows)} videos, {len(repos)} repositories, {len(known)} known tools, {len(toks)} name candidates")
+
+
 def rebuild_content(F):
     """rewrite every content_full.md from the stored transcript and features (no network): after a label/language change or a glossary update"""
     from .scan import write_content
@@ -300,6 +361,8 @@ def main():
         texts(F)
     elif a[:1] == ["content"]:
         rebuild_content(F)
+    elif a[:1] == ["screen"]:
+        screen_report(F)
     elif a[:1] == ["csv"]:
         export_csv(F)
     elif a[:1] == ["features"]:

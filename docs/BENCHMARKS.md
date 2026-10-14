@@ -43,6 +43,24 @@ What was done instead is a cross-check, which is not accuracy: the tool's transc
 
 The OCR model reads English perfectly and Polish **without its accents** ("zeby", "moze"); the tool restores them from the account's own words, a small built-in list of common Polish words and suffix rules. That roughly halves the error but does not remove it: about one Polish line in four comes out exact, and the rest differ by a missing accent. A recognition model that knows Latin accents would fix it at the source (not done: it is an extra download). Real video frames are harder than this synthetic text (motion blur, stylised fonts), so these figures are an upper bound. Videos with speech are not affected: their text comes from the transcript.
 
+## Text on screen: repositories, skill names, commands
+
+For videos that show a terminal, a slide or a browser, `reel-intel visuals` reads one frame a second (OCR) and `reel-intel report screen` lists what looks like a GitHub repository (`github.com/owner/name`, or a bare `owner/name` next to words such as GitHub, repo, npx, plugin marketplace), a skill or tool name (a hyphenated identifier only when a word like skill, plugin, MCP, agent or npx is on the screen at the same moment), a slash command or a file name (`SKILL.md`, `CLAUDE.md`).
+
+Test ([benchmarks/screen_benchmark.py](../benchmarks/screen_benchmark.py)): 48 synthetic frames (8 contents x 3 text sizes x dark and light), monospace text on a plain background, read with the same code as the scanner.
+
+| | found | expected |
+|---|---|---|
+| GitHub repositories | 36 | 36 |
+| skill names, commands, files | 36 | 36 |
+| false alarms (reported but not on screen) | 0 | |
+
+That is clean synthetic text, so it shows that the chain can work, not how well it works on real recordings (compression, motion, scrolling, small fonts). Everything it reports is a **candidate with a time stamp** to check in the video. On the first real account (33 marketing reels) it found no repository, which is correct for that content. Cost: about 36 seconds per one-minute video, on the CPU.
+
+## Long recordings
+
+One public 37-minute video (a space-agency series episode) transcribed from its audio only: 2,202 s of audio, 6,226 words, 770 s in total including the download (about 3x faster than real time on an RTX 2080 Ti). Words per 5-minute stretch were even (780-900), so no stretch was skipped, and the verifier reported no error after a fix (it had flagged a phrase that simply occurs three times in 37 minutes; a Whisper loop is the same segment repeated one after another, which is what it checks now). **Not verified:** accuracy on this recording (there is no human reference), a one-hour recording, and a Polish long video.
+
 ## Speed
 
 Machine: NVIDIA GeForce RTX 2080 Ti (11 GB), faster-whisper 1.2.1, CTranslate2 4.8.2, Python 3.12, Windows 11.

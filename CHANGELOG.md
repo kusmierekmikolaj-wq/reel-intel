@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.1 (2026-10-14)
+- Text on screen for every video: GitHub repositories, skill and tool names, commands and files (`reel-intel visuals`, `reel-intel report screen`).
+- Long recordings tested (37 minutes, audio only); the repeat check no longer flags a phrase that merely recurs in a long talk.
+- Benchmarks for both.
+
 ## 0.4.0 (2026-10-13)
 - `reel-intel shorten`: automatic short version of every video (hook, key sentences, call to action, on-screen text), never overwrites a hand-written one.
 - Content files and text exports follow the interface language; word timestamps replace stretched segment ends.

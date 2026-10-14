@@ -20,6 +20,8 @@ reel-intel run linki.txt --lang pl --open
 - **Jakość, którą da się sprawdzić**: osobny program kontrolny (`reel-intel qa`) wykrywa urwane teksty, pętle Whispera, zły język, błędne liczby i nieaktualne dane, a autotest udowadnia to na 15 wstrzykniętych usterkach (`reel-intel qa --selftest`). Szczegóły: [docs/QUALITY.md](docs/QUALITY.md).
 - **Uczciwe „dlaczego wybuchło”**: mediana i odstające, grupy tematów z testem odporności (bez najlepszego i bez trzech najlepszych), tabela cech formatu z **99% przedziałami ufności** (różnica jest „wyraźna”, tylko gdy przedział nie obejmuje 1), testy godziny publikacji i komentarzy, strona po polsku lub angielsku z wyszukiwarką i pełnym tekstem.
 - **Nie tylko transkrypcja**: `reel-intel visuals` mierzy obraz i dźwięk (tempo cięć, twarz na początku, tekst na ekranie, napisy wypalone w obrazie, tempo mowy, głośność) i dodaje to do tej samej tabeli cech; napisy wypalone w obrazie służą też jako niezależna kontrola mowy.
+- **Wszystko, co napisano na ekranie** (`reel-intel visuals`, `reel-intel report screen`): repozytoria GitHub, nazwy skilli i narzędzi, komendy i pliki są odczytywane z klatek każdego filmu, nie tylko tych bez mowy, i wypisane z minutą pojawienia się (to kandydaci: OCR się myli, więc sprawdź je w nagraniu).
+- **Długie nagrania**: film 30–60 minut jest transkrybowany wyłącznie z dźwięku, nigdy z automatycznych napisów platformy (test 37 minut trwał ok. 13 minut na średniej karcie graficznej).
 - **Porównanie kont** (`reel-intel compare`): co powtarza się na różnych profilach, a co jest stylem jednego konta. Na 6 kontach (262 filmy) żadna cecha formatu się nie powtórzyła: [docs/CASE_STUDY.md](docs/CASE_STUDY.md).
 - **Szybko**: ok. 5–7 s na wideo dla transkrypcji (pobierany jest tylko dźwięk), plus kilka sekund analizy obrazu (mała kopia wideo, najwyżej 480p; `--no-visuals` ją pomija), 4 równolegle. Na czystej mowie syntetycznej ok. 1% błędnych słów i 91–94% rozpoznanych nazw; dokładność na prawdziwych mówcach nie jest jeszcze zmierzona: [docs/BENCHMARKS.md](docs/BENCHMARKS.md).
 
@@ -31,7 +33,7 @@ reel-intel run linki.txt --lang pl --open
 | `extension/` | wtyczka do Chrome i Edge: jedno kliknięcie na stronie profilu zbiera linki i liczby wyświetleń i uruchamia skan w aplikacji ([extension/README.md](extension/README.md)) |
 | `snippet` | kod do konsoli zalogowanej przeglądarki, który kopiuje linki i liczby wyświetleń z profilu (`grid.tsv`) |
 | `demo`, `doctor` | próba na danych przykładowych; kontrola środowiska z jednolinijkowymi poprawkami |
-| `scan`, `shorten`, `qa`, `report`, `page` | poszczególne kroki. `report`: `groups`, `timing`, `hooks`, `features`, `texts`, `content`, `csv`, `clean` |
+| `scan`, `shorten`, `qa`, `report`, `page` | poszczególne kroki. `report`: `groups`, `timing`, `hooks`, `features`, `texts`, `content`, `screen`, `csv`, `clean` |
 | `compare FOLDER FOLDER ...` | kilka profili obok siebie |
 | `score scenariusz.txt` | ocena własnego scenariusza względem tego, co dane wyraźnie pokazują, i najbardziej podobnych filmów |
 | `watch ŹRÓDŁO [--alert 5]` | skan nowości, alert gdy film wybuchnie, dopisuje do `digest.md` ([docs/MONITORING.md](docs/MONITORING.md)) |

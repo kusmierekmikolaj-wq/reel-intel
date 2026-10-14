@@ -75,7 +75,7 @@ def handle(msg):
     method, mid = msg.get("method"), msg.get("id")
     if method == "initialize":
         return {"jsonrpc": "2.0", "id": mid, "result": {"protocolVersion": msg.get("params", {}).get("protocolVersion", "2024-11-05"),
-                                                          "capabilities": {"tools": {}}, "serverInfo": {"name": "reel-intel", "version": "0.4.0"}}}
+                                                          "capabilities": {"tools": {}}, "serverInfo": {"name": "reel-intel", "version": "0.4.1"}}}
     if method == "tools/list":
         return {"jsonrpc": "2.0", "id": mid, "result": {"tools": TOOLS}}
     if method == "tools/call":

@@ -157,13 +157,18 @@ def write_content(d, tr, f):
     elif not f["speech_reliable"]:
         L += [K["unreliable"], ""]
     shown = []
-    if (d / "onscreen.json").exists():                                 # visual reels: OCR of the 12 contact-sheet frames
+    if (d / "screen_text.json").exists():                              # every video: one frame a second, see visuals.screen_text
+        for x in jload(d / "screen_text.json")["lines"]:
+            t = restore_diacritics(x["text"], tr["language"])
+            if not any(near_duplicate(t, s) for _, s in shown):
+                shown.append((x["t"], t))
+    elif (d / "onscreen.json").exists():                               # visual reels: OCR of the 12 contact-sheet frames
         for o in jload(d / "onscreen.json"):
             for t in o["text"]:
                 t = restore_diacritics(t, tr["language"])
                 if not any(near_duplicate(t, s) for _, s in shown):
                     shown.append((o["t"], t))
-    screen = ["", f"## {K['screen']}", ""] +              [f"- [{mmss(t)}] {s}" for t, s in shown] if (d / "onscreen.json").exists() else []
+    screen = ["", f"## {K['screen']}", ""] +              [f"- [{mmss(t)}] {s}" for t, s in shown] if shown or (d / "onscreen.json").exists() else []
     L += lines + screen + ["", f"## {K['caption']}", "", f.get("caption") or f"({K['none']})", "", f"## {K['reliab']}", "",
                   f"- {K['low']}: {len(low)}/{len(words)}" + (": " + ", ".join(f"{w['w']} ({w['s']:.1f}s)" for w in low[:25]) if low else ""),
                   f"- {K['fixes']}: {'; '.join(fixes) or K['none']}"]

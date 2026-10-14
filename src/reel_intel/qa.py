@@ -38,6 +38,31 @@ def check_environment():
     return out
 
 
+def repeat_runs(segs, norm, run_min=3, window_s=45.0, window_n=4):
+    """A Whisper loop is the SAME segment again and again: either one after another (a run), or densely (4+ times within 45 s).
+    The same short phrase turning up now and then over a 40-minute talk is just speech, and is not reported."""
+    out, i = [], 0
+    while i < len(segs):
+        j = i
+        while j + 1 < len(segs) and norm[j + 1] == norm[i]:
+            j += 1
+        n = j - i + 1
+        if n >= run_min and len(norm[i]) > 3:
+            out.append((norm[i], n, [w["p"] for s in segs[i:j + 1] for w in s["words"]]))
+        i = j + 1
+    reported = {o[0] for o in out}
+    where = {}
+    for k, txt in enumerate(norm):
+        if len(txt) > 3 and txt not in reported:
+            where.setdefault(txt, []).append(k)
+    for txt, ks in where.items():
+        for x in range(len(ks) - window_n + 1):
+            if segs[ks[x + window_n - 1]]["start"] - segs[ks[x]]["start"] <= window_s:
+                out.append((txt, window_n, [w["p"] for k in ks[x:x + window_n] for w in segs[k]["words"]]))
+                break
+    return out
+
+
 def check_transcript(rid, d, adur, out):
     t = jload(d / "transcript.json")
     segs = t["segments"]
@@ -57,14 +82,13 @@ def check_transcript(rid, d, adur, out):
         return t
     if not CFG["language"] and t["language"] != "pl" and t["language_probability"] >= 0.8:
         add(out, rid, "INFO", "T_NOT_PL", f"language {t['language']} ({t['language_probability']})", "")
-    for txt, n in collections.Counter(re.sub(r"\W+", " ", s["text"].lower()).strip() for s in segs).items():
-        if n >= 3 and len(txt) > 3:
-            conf = [w["p"] for s in segs if re.sub(r"\W+", " ", s["text"].lower()).strip() == txt for w in s["words"]]
-            spoken = len(txt.split()) < 3 and (n < 6 or (conf and sum(conf) / len(conf) >= 0.85))      # one or two words, said again and again: a speaker can do that
-            if spoken:
-                add(out, rid, "WARN", "T_REPEAT", f"'{txt[:50]}' appears {n}x; probably spoken that way (short, confident): check the recording", "")
-            else:
-                add(out, rid, "ERROR", "T_REPEAT", f"segment repeated {n}x: '{txt[:50]}' (Whisper loop)", "rescan with condition_on_previous_text=False")
+    norm = [re.sub(r"\W+", " ", s["text"].lower()).strip() for s in segs]
+    for txt, n, conf in repeat_runs(segs, norm):
+        spoken = len(txt.split()) < 3 and (n < 6 or (conf and sum(conf) / len(conf) >= 0.85))      # one or two words, said again and again: a speaker can do that
+        if spoken:
+            add(out, rid, "WARN", "T_REPEAT", f"'{txt[:50]}' appears {n}x in a row; probably spoken that way (short, confident): check the recording", "")
+        else:
+            add(out, rid, "ERROR", "T_REPEAT", f"segment repeated {n}x in a row: '{txt[:50]}' (Whisper loop)", "rescan with condition_on_previous_text=False")
     if re.search(r"[Ѐ-ӿ一-鿿؀-ۿऀ-ॿ]", raw):
         add(out, rid, "ERROR", "T_FOREIGN_SCRIPT", "non-Latin characters (hallucination or wrong language)", "rescan with the right language")
     if words:
