@@ -16,7 +16,7 @@ import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-from make_wer_pack import wer  # noqa: E402  (errors, reference words; same normalisation as the other benchmarks)
+from make_wer_pack import norm, wer  # noqa: E402  (errors, reference words; same normalisation as the other benchmarks)
 
 
 def vtt_text(p):
@@ -32,6 +32,15 @@ def vtt_text(p):
             out.append(line)
             last = line
     return " ".join(out)
+
+
+def missed(ref, hyp):
+    """share of the subtitle's words that the tool's text does not contain in order (words the tool ADDED are not counted): fillers the editor dropped
+    do not hurt here, but a wrongly heard or missing word does"""
+    import difflib
+    a, b = norm(ref), norm(hyp)
+    sm = difflib.SequenceMatcher(None, a, b, autojunk=False)
+    return sum(i2 - i1 for tag, i1, i2, _j1, _j2 in sm.get_opcodes() if tag != "equal") / max(len(a), 1)
 
 
 def main(argv=None):
@@ -69,7 +78,7 @@ def main(argv=None):
             ref = vtt_text(vtts[0])
             hyp = " ".join(apply_fixes(s["text"], lang)[0] for s in tr["segments"])
             e, n = wer(ref, hyp)
-            rows.append((f["id"], lang, f["word_count"], n, e / max(n, 1)))
+            rows.append((f["id"], lang, f["word_count"], n, e / max(n, 1), missed(ref, hyp)))
     if not rows:
         print("no video with an uploaded subtitle track found")
         return
@@ -81,9 +90,11 @@ def main(argv=None):
          f"**{tot_e / tot_n:.1%} overall**, median per video {srt[len(srt) // 2]:.1%}, best {srt[0]:.1%}, worst {srt[-1]:.1%}.", "",
          "Subtitles are edited text, not verbatim (fillers, repetitions and false starts are usually dropped, numbers are written their own way), so this is an "
          "**upper bound** on the true error. Languages: " + ", ".join(sorted({r[1] for r in rows})) + ".", "",
-         "| video | words (tool) | words (subtitles) | WER |", "|---|---|---|---|"]
+         f"Second measure, **subtitle words the tool did not reproduce** (extra words the tool has are not counted, so dropped fillers do not hurt; a wrongly heard or missing word does): "
+         f"**{sum(r[5] * r[3] for r in rows) / tot_n:.1%} overall**. Digits written as words in the subtitles (and the reverse) still count as misses.", "",
+         "| video | language | words (tool) | words (subtitles) | WER | subtitle words missed |", "|---|---|---|---|---|---|"]
     for r in sorted(rows, key=lambda r: r[4]):
-        L.append(f"| {r[0]} | {r[2]} | {r[3]} | {r[4]:.1%} |")
+        L.append(f"| {r[0]} | {r[1]} | {r[2]} | {r[3]} | {r[4]:.1%} | {r[5]:.1%} |")
     out.write_text("\n".join(L) + "\n", encoding="utf-8")
     print("\n".join(L[:6]))
 

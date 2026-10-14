@@ -22,14 +22,23 @@ Reading it:
 
 ## What this does not show
 
-- **Real speakers.** Synthetic voices are clean and evenly paced. Real reels have fast speech, accents, music and overlapping sound, so absolute WER will be higher than the table. A benchmark on real reels needs a human-checked reference transcript for each one; that has not been done, and until it is, the honest statement is: *on clean synthetic speech the pipeline is at 1% WER, and the glossary mechanism is the measurable gain; real-world accuracy is not yet measured.*
+- **Real speakers.** Synthetic voices are clean and evenly paced. Real reels have fast speech, accents, music and overlapping sound, so absolute WER will be higher than the table. Real talks are measured separately (next section); short noisy reels still are not.
 - **Real-data checks we do have**: the verifier (`reel-intel qa`) is run on every reel in six real accounts (262 videos). It found a genuine loss of speech and led to a fix for English clips detected as Welsh (see [QUALITY.md](QUALITY.md)); the synthetic benchmark could not have found either.
 
-## Real speakers: what we could and could not measure
+## Real speakers: measured on four talks with human-made subtitles
 
-**No human-made reference was available.** The 6 accounts' YouTube videos list 30 "subtitle" tracks, but every one is YouTube's own automatic speech recognition (the track URLs carry `caps=asr`), not text typed by a person. Hand-checked transcripts of 16 real videos were prepared (`benchmarks/make_wer_pack.py`) but nobody has had time to correct them, and the assistant that wrote the tool cannot listen to audio, so **real-speaker word error is still not measured**.
+Four public talks whose uploader supplied a subtitle track written by people (volunteer translators are credited in the Polish tracks; the files have no word-by-word timing tags that automatic captions carry): 2 English and 2 Polish, 8,553 reference words, 8-22 minutes each, transcribed from the audio only by the same pipeline (`reel-intel run`, large-v3 on a GPU). Script: [benchmarks/caption_check.py](../benchmarks/caption_check.py), per-video table: [CAPTION_RESULTS.md](../benchmarks/CAPTION_RESULTS.md). Only numbers are kept, never the subtitle texts.
 
-What was done instead is a cross-check, which is not accuracy: the tool's transcript against YouTube's automatic captions on 21 videos before the fixes below: 15.4% word disagreement overall, median 11.4%, 4 videos at 0-1% (clean, close-up speech), the worst two at 43% and 110%. Two systems disagreeing says nothing about which is right, but a large gap is a lead worth checking: the 43% video turned out to be **our** failure (about 60 spoken words skipped inside one segment, see [QUALITY.md](QUALITY.md)), now detected and recovered. Reproduce with `benchmarks/caption_check.py` (it now refuses automatic tracks, so it needs videos with real uploaded subtitles).
+| measure | result | what it means |
+|---|---|---|
+| word error rate against the subtitles | **8.1% overall** (4.5%, 5.7%, 6.3%, 13.0% per talk) | an **upper bound**: subtitles are edited, so every dropped filler, repetition and number written differently counts as an error |
+| subtitle words the tool did not reproduce | **4.0% overall** (3.0% to 5.7% per talk) | words the tool added are not counted, so edited-out fillers do not hurt; a missing or wrongly heard word does |
+
+What the 13.0% talk looks like in detail (Polish, a speaker with many fillers): of 243 differences, 130 are words the tool wrote and the subtitles dropped ("ja", "w związku z tym", "a więc"), many others are digits against spelled-out numbers ("3" and "trzy", "10" and "dziesięć"); the real mistakes are few and audible in the diff ("patrz jaka niska" heard as "paczek aniska", "wstrzeli" as "strzeli").
+
+**What this does and does not say.** It is a measurement on real speakers with a human reference, but on **four** long, clearly recorded talks (stage microphone, one speaker). Short reels with music, fast speech or several voices will be worse, and four talks are too few for a confidence interval. The honest statement: *on clear spoken talks in English and Polish about 4% of the subtitle words are missed and the disagreement with edited subtitles is 8%; accuracy on noisy short reels is still not measured.* The earlier plan to hand-correct 16 short reels (`benchmarks/make_wer_pack.py`) is still the way to measure that.
+
+An earlier cross-check against YouTube's automatic captions (not a reference, two systems disagreeing) led to a real fix: one video showed about 60 spoken words skipped inside one segment, now detected and recovered (see [QUALITY.md](QUALITY.md)).
 
 ## Text on screen (OCR, for videos without speech)
 
