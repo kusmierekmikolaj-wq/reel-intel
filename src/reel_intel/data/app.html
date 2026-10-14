@@ -168,7 +168,7 @@ footer { padding: 36px 0 56px; color: var(--muted); font-size: .8rem; border-top
     </div>
     <div id="result" hidden style="margin-top:44px">
       <h2 data-t="result" style="font-size:2rem"></h2>
-      <p style="margin-top:8px"><a id="open" href="/page" target="_blank" rel="noopener" data-t="open_new"></a> <span style="color:var(--muted)">· <a href="/screen" target="_blank" rel="noopener" data-t="screen"></a> · <span id="count"></span></span></p>
+      <p style="margin-top:8px"><a id="open" href="/page" target="_blank" rel="noopener" data-t="open_new"></a> <span style="color:var(--muted)">· <a href="/screen" target="_blank" rel="noopener" data-t="screen"></a> · <a href="/digest" target="_blank" rel="noopener" data-t="digest"></a> · <span id="count"></span></span></p>
       <iframe id="frame" title="result"></iframe>
     </div>
   </div>
@@ -187,7 +187,7 @@ const T = {
     scan_h: "Nowy skan.", scan_sub: "Wklej linki do wideo z Instagrama, TikToka, YouTube, X lub Facebooka. Wszystko liczy się na tym komputerze.",
     links: "Linki (jeden w wierszu) lub wynik fragmentu kodu z przeglądarki", lang: "Język strony wyników", limit: "Maks. liczba wideo", go: "Skanuj",
     help: "Mam profil, nie pojedyncze linki", help_text: "Najprościej: zainstaluj wtyczkę z folderu „extension” (chrome://extensions, Tryb dewelopera, Załaduj rozpakowane), otwórz profil i kliknij wtyczkę. Bez wtyczki: Instagram, TikTok i Facebook nie pozwalają programowi wylistować profilu. Otwórz profil w swojej przeglądarce (zalogowanej), naciśnij F12, wybierz Konsola, wklej poniższy kod i Enter, a potem wklej wynik (ze schowka) do pola wyżej. Kanał YouTube możesz wkleić wprost.",
-    copy: "Kopiuj kod do przeglądarki", copied: "Skopiowano", details: "Szczegóły przebiegu", result: "Wynik", open_new: "Otwórz stronę w nowej karcie", screen: "Co było na ekranie (repozytoria, skille)", reels: "wideo w danych",
+    copy: "Kopiuj kod do przeglądarki", copied: "Skopiowano", details: "Szczegóły przebiegu", result: "Wynik", open_new: "Otwórz stronę w nowej karcie", screen: "Co było na ekranie (repozytoria, skille)", digest: "Plik dla agenta AI", reels: "wideo w danych",
     idle: "Gotowe do skanowania.", running: "Trwa skanowanie…", done: "Gotowe.", error: "Błąd, szczegóły poniżej.", none: "Wklej przynajmniej jeden poprawny link.",
     steps: ["Pobieranie i tekst", "Skróty", "Obraz i dźwięk", "Kontrola jakości", "Strona wyników"],
     foot: "Wszystko liczy się na tym komputerze. Wnioski to hipotezy z małych prób, nie dowody." },
@@ -199,7 +199,7 @@ const T = {
     scan_h: "New scan.", scan_sub: "Paste links to videos from Instagram, TikTok, YouTube, X or Facebook. Everything is computed on this computer.",
     links: "Links (one per line) or the output of the browser snippet", lang: "Result page language", limit: "Max videos", go: "Scan",
     help: "I have a profile, not single links", help_text: "Easiest: install the extension from the \"extension\" folder (chrome://extensions, Developer mode, Load unpacked), open the profile and click the extension. Without it: Instagram, TikTok and Facebook do not let a program list a profile. Open the profile in your own (logged-in) browser, press F12, choose Console, paste the code below and press Enter, then paste the result (from the clipboard) into the box above. A YouTube channel can be pasted as is.",
-    copy: "Copy the browser code", copied: "Copied", details: "Run details", result: "Result", open_new: "Open the page in a new tab", screen: "What was on screen (repos, skills)", reels: "videos in the data",
+    copy: "Copy the browser code", copied: "Copied", details: "Run details", result: "Result", open_new: "Open the page in a new tab", screen: "What was on screen (repos, skills)", digest: "File for an AI agent", reels: "videos in the data",
     idle: "Ready to scan.", running: "Scanning…", done: "Done.", error: "Error, details below.", none: "Paste at least one valid link.",
     steps: ["Download and text", "Short versions", "Picture and sound", "Quality check", "Result page"],
     foot: "Everything is computed on this computer. Conclusions are hypotheses from small samples, not proof." } };

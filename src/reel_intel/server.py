@@ -208,6 +208,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, markdown_page((LIBRARY / "COMPARE.md").read_text(encoding="utf-8")))
             base = WORK / lid[5:] if lid.startswith("scan:") else LIBRARY / lid
             return self._send(200, (base / "Reele.html").read_bytes(), "text/html; charset=utf-8")
+        if self.path == "/digest":                                                 # one file for an AI agent: speech, screen text, caption, names to check
+            base = JOB["dir"] or WORK
+            f = next((base / n for n in ("DLA_AI.md", "FOR_AI.md") if (base / n).exists()), None)
+            return self._send(200, f.read_text(encoding="utf-8"), "text/plain; charset=utf-8") if f else self._send(404, "no digest yet")
         if self.path.startswith("/screen"):                                       # what was written on the screens: /screen (this scan) or /screen?lib=<id>
             q = unquote(self.path.partition("?lib=")[2])
             if not q:

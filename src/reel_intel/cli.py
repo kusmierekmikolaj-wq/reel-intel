@@ -13,6 +13,7 @@
   reel-intel platforms           test which platforms work today (writes docs/PLATFORMS.md)
   reel-intel snippet             print a browser-console snippet that copies a profile's reel links (grid.tsv)
   reel-intel visuals             what the picture and sound show (cuts, face, on-screen text, burned-in captions): not only the transcript
+  reel-intel report digest       ONE file for an AI agent: speech, on-screen text, caption and the skills/repos/commands to check (also written by `run`)
   reel-intel shorten             automatic short version (hook, key sentences, CTA, on-screen text); never overwrites one written by a person or Claude
   reel-intel scan|qa|report|page [...]   the individual steps
 Data folder: --data DIR, else $REEL_DATA, else ./reel-data.  Interface language: --lang or ui_language in <data>/config.yaml.
@@ -152,6 +153,7 @@ def run_all(args):
         print("3/5 picture and sound (what is not in the transcript; --no-visuals skips it)", flush=True)
         step("visuals", [])
         step("report", ["screen"])
+    step("report", ["digest"])
     print("4/5 quality check", flush=True)
     step("qa", [])
     print("5/5 page", flush=True)

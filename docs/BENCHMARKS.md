@@ -45,7 +45,7 @@ The OCR model reads English perfectly and Polish **without its accents** ("zeby"
 
 ## Text on screen: repositories, skill names, commands
 
-For videos that show a terminal, a slide or a browser, `reel-intel visuals` reads one frame a second (OCR) and `reel-intel report screen` lists what looks like a GitHub repository (`github.com/owner/name`, or a bare `owner/name` next to words such as GitHub, repo, npx, plugin marketplace), a skill or tool name (a hyphenated identifier only when a word like skill, plugin, MCP, agent or npx is on the screen at the same moment), a slash command or a file name (`SKILL.md`, `CLAUDE.md`).
+For videos that show a terminal, a slide or a browser, `reel-intel visuals` reads two frames a second (OCR) and `reel-intel report screen` lists what looks like a GitHub repository (`github.com/owner/name`, or a bare `owner/name` next to words such as GitHub, repo, npx, plugin marketplace), a skill or tool name (a hyphenated identifier only when a word like skill, plugin, MCP, agent or npx is on the screen at the same moment), a slash command or a file name (`SKILL.md`, `CLAUDE.md`).
 
 Test ([benchmarks/screen_benchmark.py](../benchmarks/screen_benchmark.py)): 48 synthetic frames (8 contents x 3 text sizes x dark and light), monospace text on a plain background, read with the same code as the scanner.
 

@@ -150,9 +150,9 @@ def audio_stats(d):
     return {"rms_db": round(20 * float(np.log10(rms)), 1), "centroid_hz": round(sum(cents) / len(cents)) if cents else None}
 
 
-def screen_text(d, every=1.0, max_frames=300):
+def screen_text(d, every=0.5, max_frames=300):
     """Everything written on the screen, for videos WITH speech too (names of skills and tools, GitHub repositories, commands).
-    One frame a second; a frame that looks like the last one read is skipped; identical lines are kept once, with the time of the first sighting.
+    Two frames a second (a list that scrolls past in a second is missed at one), plus the last frame; a frame that looks like the last one read is skipped; identical lines are kept once, with the time of the first sighting.
     Saved as screen_text.json: {"lines": [{"t", "text"}], "mentions": {repos, tokens, known}}"""
     import cv2
     import numpy as np
@@ -167,7 +167,7 @@ def screen_text(d, every=1.0, max_frames=300):
         raise ValueError("video could not be read")
     step = max(every, dur / max_frames)
     prev, lines = None, []
-    for t in np.arange(0.3, dur, step):
+    for t in [*np.arange(0.3, dur, step), max(0.0, dur - 0.15)]:
         cap.set(cv2.CAP_PROP_POS_MSEC, float(t) * 1000)
         ok, img = cap.read()
         if not ok:

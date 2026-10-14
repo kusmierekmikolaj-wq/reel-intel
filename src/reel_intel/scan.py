@@ -160,7 +160,7 @@ def write_content(d, tr, f):
     elif not f["speech_reliable"]:
         L += [K["unreliable"], ""]
     shown = []
-    if (d / "screen_text.json").exists():                              # every video: one frame a second, see visuals.screen_text
+    if (d / "screen_text.json").exists():                              # every video: two frames a second, see visuals.screen_text
         for x in jload(d / "screen_text.json")["lines"]:
             t = restore_diacritics(x["text"], tr["language"])
             if not any(near_duplicate(t, s) for _, s in shown):

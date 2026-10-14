@@ -23,7 +23,7 @@ def vtt_text(p):
     out, last = [], None
     for line in p.read_text(encoding="utf-8", errors="replace").splitlines():
         line = line.strip()
-        if not line or line.startswith(("WEBVTT", "Kind:", "Language:", "NOTE")) or "-->" in line or re.fullmatch(r"\d+", line):
+        if not line or line.startswith(("WEBVTT", "Kind:", "Language:", "NOTE", "Transcriber:", "Reviewer:", "Translator:", "Tłumaczenie:", "Korekta:")) or "-->" in line or re.fullmatch(r"\d+", line):
             continue
         line = re.sub(r"<[^>]+>", "", line)
         line = re.sub(r"\[[^\]]*\]|\([^)]*\)|♪[^♪]*♪|>>", " ", line)          # [Music], (applause), speaker marks
@@ -53,14 +53,18 @@ def main(argv=None):
             tr = json.loads((d / "transcript.json").read_text(encoding="utf-8"))
             lang = tr["language"]
             track = (meta.get("subtitles") or {}).get(lang) or []
-            # yt-dlp lists some AUTOMATIC captions under "subtitles"; their URL carries caps=asr. A human reference must not be one of those.
-            if not track or any("caps=asr" in (x.get("url") or "") for x in track) or f.get("word_count", 0) < 30 or not f.get("speech_reliable"):
+            # the URL flag caps=asr is NOT a reliable sign of an automatic track (human TED tracks carry it too), so the file itself is checked below
+            if not track or f.get("word_count", 0) < 30 or not f.get("speech_reliable"):
                 continue
             base = tmp / f["id"]
             subprocess.run(ytdlp() + ["--skip-download", "--write-subs", "--sub-langs", lang, "--sub-format", "vtt", "--no-warnings", "-o", str(base), f["url"]],
                            capture_output=True, text=True)
             vtts = list(tmp.glob(f"{f['id']}*.vtt"))
             if not vtts:
+                continue
+            raw = vtts[0].read_text(encoding="utf-8", errors="replace")
+            if re.search(r"<\d\d:\d\d:\d\d\.\d+>|<c>", raw):                    # word-by-word timing tags only exist in automatic captions
+                print(f"{f['id']}: automatic captions, skipped")
                 continue
             ref = vtt_text(vtts[0])
             hyp = " ".join(apply_fixes(s["text"], lang)[0] for s in tr["segments"])

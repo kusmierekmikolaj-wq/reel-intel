@@ -590,3 +590,19 @@ def test_screen_report_route_serves_only_known_folders(tmp_path, monkeypatch):
             assert e.value.code == 404
     finally:
         srv.shutdown()
+
+
+def test_digest_puts_names_from_the_screen_next_to_speech_and_caption(tmp_path, monkeypatch):
+    from reel_intel import common, report
+    d = tmp_path / "data" / "r1"
+    d.mkdir(parents=True)
+    (d / "transcript.json").write_text(json.dumps({"language": "en", "segments": [{"text": "This is the skill I use every day."}]}), encoding="utf-8")
+    (d / "screen_text.json").write_text(json.dumps({"lines": [{"t": 2.0, "text": "git clone github.com/obra/superpowers"}, {"t": 3.0, "text": "/brainstorm"}]}), encoding="utf-8")
+    F = {"r1": {"views": 1234, "url": "https://x/r1", "duration_s": 20, "word_count": 40, "speech_reliable": True, "caption": "My caption", "uploader": "someone"}}
+    monkeypatch.setattr(report, "DATA", tmp_path / "data")
+    monkeypatch.setattr(report, "WORK", tmp_path)
+    monkeypatch.setitem(common.CFG, "ui_language", "en")
+    report.digest(F)
+    out = (tmp_path / "FOR_AI.md").read_text(encoding="utf-8")
+    assert "obra/superpowers" in out and "/brainstorm" in out and "This is the skill I use every day." in out and "My caption" in out
+    assert out.index("obra/superpowers") < out.index("## 1. r1")                  # the names to check come before the per-video part

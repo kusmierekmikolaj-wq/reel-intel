@@ -198,6 +198,19 @@ TEXT_LABELS = {
 }
 
 
+def screen_lines(d):
+    """every line read from the frames of one video, in order of appearance: the dense reading (screen_text.json) when it exists, else the contact-sheet one"""
+    if (d / "screen_text.json").exists():
+        return [x["text"] for x in jload(d / "screen_text.json")["lines"]]
+    seen = []
+    if (d / "onscreen.json").exists():
+        for o in jload(d / "onscreen.json"):
+            for t in o["text"]:
+                if t not in seen:
+                    seen.append(t)
+    return seen
+
+
 def texts(F):
     """one readable file with the exact text of every video (TEKSTY_REELI.md / TEXTS.md) + all short versions (SKROTY_REELI.md / SHORTS.md)"""
     from .common import CFG, apply_fixes
@@ -214,13 +227,8 @@ def texts(F):
             L += [f"**{K['speech']}:**", "", " ".join(apply_fixes(s["text"], tr["language"])[0] for s in tr["segments"]), ""]
         else:
             L += [f"**{K['speech']}:** {K['nospeech']}", ""]
-        if (d / "onscreen.json").exists():
-            seen = []
-            for o in jload(d / "onscreen.json"):
-                for t in o["text"]:
-                    if t not in seen:
-                        seen.append(t)
-            L += [f"**{K['screen']}:**", "", " / ".join(seen) or f"({K['none']})", ""]
+        if (d / "onscreen.json").exists() or (d / "screen_text.json").exists():
+            L += [f"**{K['screen']}:**", "", " / ".join(screen_lines(d)) or f"({K['none']})", ""]
         L += [f"**{K['caption']}:**", "", f.get("caption") or f"({K['none']})", "", "---", ""]
         if (d / "content_short.md").exists():
             S += (d / "content_short.md").read_text(encoding="utf-8").splitlines()[1:] + ["", "---", ""]
@@ -233,10 +241,10 @@ def texts(F):
 
 
 SCREEN_LABELS = {
-    "pl": {"file": "NA_EKRANIE.md", "h1": "Co pokazano na ekranie", "intro": "Tekst odczytany z klatek filmów (OCR, jedna klatka na sekundę) i to, co w nim wyszukano. OCR się myli, więc to **kandydaci**: sprawdź każdy w nagraniu o podanej minucie.",
+    "pl": {"file": "NA_EKRANIE.md", "h1": "Co pokazano na ekranie", "intro": "Tekst odczytany z klatek filmów (OCR, dwie klatki na sekundę) i to, co w nim wyszukano. OCR się myli, więc to **kandydaci**: sprawdź każdy w nagraniu o podanej minucie.",
            "sum": "Podsumowanie", "reels": "filmów z odczytem ekranu", "withrepo": "filmów z repozytorium GitHub na ekranie", "repos": "Repozytoria GitHub (na ekranie)", "tokens": "Nazwy skilli, komendy i pliki (kandydaci)",
            "known": "Znane narzędzia ze słownika", "none": "brak", "where": "w filmach", "per": "Po filmach (od najczęściej oglądanych)", "lines": "Tekst na ekranie (początek)", "views": "wyświetleń"},
-    "en": {"file": "ON_SCREEN.md", "h1": "What was shown on screen", "intro": "Text read from the video frames (OCR, one frame a second) and what was found in it. OCR makes mistakes, so these are **candidates**: check each one in the video at the time given.",
+    "en": {"file": "ON_SCREEN.md", "h1": "What was shown on screen", "intro": "Text read from the video frames (OCR, two frames a second) and what was found in it. OCR makes mistakes, so these are **candidates**: check each one in the video at the time given.",
            "sum": "Summary", "reels": "videos with the screen read", "withrepo": "videos with a GitHub repository on screen", "repos": "GitHub repositories (on screen)", "tokens": "Skill names, commands and files (candidates)",
            "known": "Known tools from the glossary", "none": "none", "where": "in videos", "per": "Per video (most viewed first)", "lines": "On-screen text (start)", "views": "views"},
 }
@@ -290,6 +298,66 @@ def screen_report(F):
         L.append("")
     (WORK / K["file"]).write_text("\n".join(L), encoding="utf-8")
     print(f"{K['file']}: {len(rows)} videos, {len(repos)} repositories, {len(known)} known tools, {len(toks)} name candidates")
+
+
+DIGEST_LABELS = {
+    "pl": {"file": "DLA_AI.md", "h1": "Zestawienie dla agenta AI",
+           "intro": "{n} filmów z jednego konta ({who}), od najczęściej oglądanych. Każdy film: co autor mówi (dosłownie), co jest napisane na ekranie, opis posta i to, co z tego da się zainstalować lub sprawdzić. "
+                    "Wklej ten plik do agenta (Claude, Jarvis) i zapytaj np.: *„Które z tych rzeczy możemy praktycznie wykorzystać u nas i jak?”* albo *„Na tej podstawie zaproponuj scenariusze naszych rolek.”* "
+                    "Nazwy z ekranu to odczyt OCR (kandydaci, mogą mieć literówki).",
+           "act": "Do sprawdzenia lub zainstalowania (z ekranów filmów)", "repos": "Repozytoria GitHub", "tokens": "Skille, komendy, pliki", "known": "Narzędzia", "none": "brak",
+           "speech": "Mowa", "nospeech": "brak użytecznej mowy (muzyka lub reel wizualny)", "screen": "Tekst na ekranie", "caption": "Opis posta", "views": "wyświetleń"},
+    "en": {"file": "FOR_AI.md", "h1": "Digest for an AI agent",
+           "intro": "{n} videos from one account ({who}), most viewed first. For every video: what the author says (verbatim), what is written on the screen, the post caption and what can be installed or checked. "
+                    "Paste this file into an agent (Claude, Jarvis) and ask e.g. *\"Which of these can we use in practice, and how?\"* or *\"Propose scripts for our own reels based on this.\"* "
+                    "Names from the screen are OCR readings (candidates, may contain typos).",
+           "act": "To check or install (read from the video screens)", "repos": "GitHub repositories", "tokens": "Skills, commands, files", "known": "Tools", "none": "none",
+           "speech": "Speech", "nospeech": "no usable speech (music or a visual reel)", "screen": "On-screen text", "caption": "Post caption", "views": "views"},
+}
+
+
+def digest(F):
+    """ONE file to hand to an AI agent: actionable names first, then every video with its speech, screen text and caption (DLA_AI.md / FOR_AI.md)"""
+    from collections import defaultdict
+    from .common import CFG, apply_fixes, glossary_prompt
+    from . import screenmine
+    K = DIGEST_LABELS.get(CFG.get("ui_language"), DIGEST_LABELS["en"])
+    rows = sorted(F.items(), key=lambda kv: -(kv[1].get("views") or 0))
+    mm = lambda t: f"{int(t // 60)}:{int(t % 60):02d}"
+    who = ", ".join(sorted({f.get("uploader") or f.get("channel") or "" for _r, f in rows} - {""})[:3]) or "?"
+    acts = {"repos": defaultdict(list), "tokens": defaultdict(list), "known": defaultdict(list)}
+    body = []
+    for n, (rid, f) in enumerate(rows, 1):
+        d = DATA / rid
+        tr = jload(d / "transcript.json") if (d / "transcript.json").exists() else {"segments": [], "language": None}
+        lines = screen_lines(d)
+        names = [x.strip() for x in glossary_prompt(f.get("language")).split(",") if x.strip()]
+        sl = jload(d / "screen_text.json")["lines"] if (d / "screen_text.json").exists() else []
+        m = screenmine.mine([(x["t"], x["text"]) for x in sl], names)
+        for r in m["repos"]:
+            acts["repos"][r["repo"].lower()].append((r["repo"], rid, r["t"]))
+        for x in m["tokens"]:
+            acts["tokens"][x["token"].lower()].append((x["token"], rid, x["t"]))
+        for x in m["known"]:
+            acts["known"][x["name"]].append((x["name"], rid, x["t"]))
+        views = f"{f['views']:,.0f}" if f.get("views") else "?"
+        body += [f"## {n}. {rid} ({views} {K['views']}, {f.get('duration_s')} s)", f.get("url") or "", ""]
+        if f.get("word_count", 0) >= 10 and f.get("speech_reliable", True):
+            body += [f"**{K['speech']}:** " + " ".join(apply_fixes(s["text"], tr["language"])[0] for s in tr["segments"]), ""]
+        else:
+            body += [f"**{K['speech']}:** {K['nospeech']}", ""]
+        found = [f"`{r['repo']}`" for r in m["repos"]] + [f"`{x['token']}`" for x in m["tokens"]]
+        if found:
+            body += [f"**{K['act']}:** " + ", ".join(found), ""]
+        body += [f"**{K['screen']}:** " + (" / ".join(lines)[:3000] or f"({K['none']})"), ""]
+        body += [f"**{K['caption']}:** " + ((f.get("caption") or "")[:3000] or f"({K['none']})"), "", "---", ""]
+    link = lambda v: ", ".join(f"{rid} ({mm(t)})" for _x, rid, t in v[:4])
+    top = [f"# {K['h1']}", "", K["intro"].format(n=len(rows), who=who), "", f"## {K['act']}", ""]
+    for key in ("repos", "tokens", "known"):
+        items = sorted(acts[key].items(), key=lambda kv: -len(kv[1]))
+        top += [f"**{K[key]}:** " + ("; ".join(f"`{v[0][0]}` ({link(v)})" for _k, v in items) if items else K["none"]), ""]
+    (WORK / K["file"]).write_text("\n".join(top + ["---", ""] + body), encoding="utf-8")
+    print(f"{K['file']}: {len(rows)} videos, {sum(len(v) for v in acts['repos'].values())} repository mentions, {len(acts['tokens'])} names/commands")
 
 
 def rebuild_content(F):
@@ -363,6 +431,8 @@ def main():
         rebuild_content(F)
     elif a[:1] == ["screen"]:
         screen_report(F)
+    elif a[:1] == ["digest"]:
+        digest(F)
     elif a[:1] == ["csv"]:
         export_csv(F)
     elif a[:1] == ["features"]:
