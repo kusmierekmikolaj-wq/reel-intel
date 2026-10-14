@@ -86,10 +86,11 @@ def markdown_page(md):
         elif line.strip():
             body.append(f"<p>{html.escape(line)}</p>")
     flush()
+    title = next((l[2:] for l in md.splitlines() if l.startswith("# ")), "reel-intel")
     css = ("body{font:16px/1.5 system-ui,Segoe UI,sans-serif;max-width:1100px;margin:24px auto;padding:0 16px;color:#12161C;background:#F4F6F9}"
            "table{border-collapse:collapse;width:100%;margin:12px 0;background:#fff}th,td{border:1px solid #D9DFE8;padding:6px 10px;text-align:left;font-size:.92rem}"
            "th{background:#E8ECF4}h1{font-size:1.6rem}h2{margin-top:28px}")
-    return f"<!doctype html><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Comparison</title><style>{css}</style>{''.join(body)}"
+    return f"<!doctype html><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>{html.escape(title)}</title><style>{css}</style>{''.join(body)}"
 
 
 def parse_sources(text):
@@ -207,6 +208,16 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, markdown_page((LIBRARY / "COMPARE.md").read_text(encoding="utf-8")))
             base = WORK / lid[5:] if lid.startswith("scan:") else LIBRARY / lid
             return self._send(200, (base / "Reele.html").read_bytes(), "text/html; charset=utf-8")
+        if self.path.startswith("/screen"):                                       # what was written on the screens: /screen (this scan) or /screen?lib=<id>
+            q = unquote(self.path.partition("?lib=")[2])
+            if not q:
+                base = JOB["dir"] or WORK
+            elif q.startswith("scan:"):
+                base = WORK / q[5:]
+            else:
+                base = LIBRARY / q if LIBRARY and q in {x["id"] for x in library()} else None
+            f = next((base / n for n in ("NA_EKRANIE.md", "ON_SCREEN.md") if base and (base / n).exists()), None)
+            return self._send(200, markdown_page(f.read_text(encoding="utf-8"))) if f else self._send(404, "no screen report yet")
         if self.path.startswith("/page"):
             f = (JOB["dir"] or WORK) / "Reele.html"
             return self._send(200, f.read_bytes(), "text/html; charset=utf-8") if f.exists() else self._send(404, "no page yet")

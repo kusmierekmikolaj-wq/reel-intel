@@ -566,3 +566,27 @@ def test_screen_mining_finds_repos_and_skill_names_but_not_noise():
     assert {"/plugin", "SKILL.md", "frontend-design"} <= toks                       # skill-like, with a hint word on the screen
     assert "tail-tisk" not in toks and "capital-expansion" not in toks              # random OCR words far from any hint
     assert [k["name"] for k in m["known"]] == ["Claude Code"]
+
+
+def test_screen_report_route_serves_only_known_folders(tmp_path, monkeypatch):
+    import threading
+    import urllib.error
+    import urllib.request
+    from reel_intel import server
+    (tmp_path / "bmw").mkdir()
+    (tmp_path / "bmw" / "Reele.html").write_text("<title>x</title>", encoding="utf-8")
+    (tmp_path / "bmw" / "NA_EKRANIE.md").write_text("# Co pokazano na ekranie\n\n- `obra/superpowers`: w filmach A (1x)\n", encoding="utf-8")
+    monkeypatch.setattr(server, "WORK", tmp_path)
+    monkeypatch.setattr(server, "LIBRARY", None)
+    srv = server.make_server(0)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{srv.server_address[1]}"
+    try:
+        body = urllib.request.urlopen(base + "/screen?lib=scan:bmw").read().decode("utf-8")
+        assert "obra/superpowers" in body and "<title>Co pokazano na ekranie</title>" in body
+        for bad in ("/screen?lib=..%2F..%2Fx", "/screen?lib=scan:nope"):
+            with pytest.raises(urllib.error.HTTPError) as e:
+                urllib.request.urlopen(base + bad)
+            assert e.value.code == 404
+    finally:
+        srv.shutdown()

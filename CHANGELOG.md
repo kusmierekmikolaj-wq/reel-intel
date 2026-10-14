@@ -1,6 +1,7 @@
 # Changelog
 
 ## 0.4.1 (2026-10-14)
+- `reel-intel run` and the local app now also write the on-screen report; the app links it under the result ("What was on screen").
 - Text on screen for every video: GitHub repositories, skill and tool names, commands and files (`reel-intel visuals`, `reel-intel report screen`).
 - Long recordings tested (37 minutes, audio only); the repeat check no longer flags a phrase that merely recurs in a long talk.
 - Benchmarks for both.

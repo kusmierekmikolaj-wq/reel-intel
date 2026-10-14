@@ -151,6 +151,7 @@ def run_all(args):
     if not no_visuals:
         print("3/5 picture and sound (what is not in the transcript; --no-visuals skips it)", flush=True)
         step("visuals", [])
+        step("report", ["screen"])
     print("4/5 quality check", flush=True)
     step("qa", [])
     print("5/5 page", flush=True)
