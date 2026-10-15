@@ -88,3 +88,18 @@ def test_app_serves_a_reel_only_from_a_listed_account(tmp_path, monkeypatch):
             assert e.value.code == 404
     finally:
         srv.shutdown()
+
+
+def test_mouth_shapes_follow_the_letters_and_rest_in_silence():
+    words = [("mama", 0.0, 0.4), ("tak", 0.5, 0.8)]
+    scenes = [{"words": words}]
+    mouth = [0.9] * 40                                                    # a loud voice the whole time
+    vis = make.viseme_track(scenes, mouth, 1.2)
+    assert vis[0] == 6 and 1 in vis[:13] and vis[len(vis) - 1] == 0      # m closes the lips, a opens, the end is at rest
+    assert make.viseme_track(scenes, [0.0] * 40, 1.2) == [0] * 37        # no sound, no moving mouth
+
+
+def test_mouth_track_without_a_voice_moves_only_during_words():
+    scenes = [{"words": [("hello", 0.2, 0.6)]}]
+    m = make.mouth_track(None, scenes, 1.0)
+    assert max(m[6:18]) > 0.3 and m[-1] < 0.05

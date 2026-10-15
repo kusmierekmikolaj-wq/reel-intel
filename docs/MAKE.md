@@ -9,6 +9,10 @@ What the scanned videos show (what works, which tools get mentioned) can feed **
 3. **Check.** `reel-intel make check rolki\rolka.json` rejects a script that is too long or malformed and warns when it repeats a run of six words from a scanned video.
 4. **Render.** `reel-intel make render rolki\rolka.json` writes `rolka.mp4` (1080x1920, H.264 + AAC) and `rolka_opis.txt` (caption and hashtags). The same steps are in the local app, section "Reels".
 
+## The mascot
+
+With the Remotion version every reel has a small robot whose face is a screen (turn it off with `"mascot": false` in the script). It blinks, breathes, waves at the start, raises its eyebrows and makes a hand gesture on every word listed in `emphasis`, and shows scanning brackets in scenes that have `chips`. The mouth takes the shape of the sounds: each word's real start and end are read off the voice file (Whisper word timestamps), the letters share that time (vowels count double) and the loudness of the voice opens or closes the mouth, so it works for Polish and English spelling alike. It is a cartoon on purpose: research on virtual influencers finds stylised figures avoid the "eerie" reaction that near-human ones can trigger. The reel is a synthetic video: label it as made with AI.
+
 ## What it uses
 
 - **Voice-over:** the speech engine of Windows (`System.Speech`, Polish and English voices, nothing to install). On other systems the video is made silent, with the same captions. The voice sounds synthetic.

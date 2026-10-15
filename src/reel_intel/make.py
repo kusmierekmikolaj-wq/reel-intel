@@ -8,7 +8,9 @@
 The tool never writes the script itself (no API keys): an agent or a person does. It also never reuses another account's frames or speech:
 `check` warns when a script repeats a run of words from a scanned video. Nothing is published anywhere.
 """
+import difflib
 import json
+import math
 import os
 import re
 import shutil
@@ -45,7 +47,10 @@ BRIEF = {
                      "Jeden pomysł na rolkę. 4-8 scen, jedno krótkie zdanie na scenę.",
                      "Na ekranie tylko 2-6 słów na scenę (hasło), nie przepisuj zdania lektora.",
                      "Pisz od zera własnymi słowami. Nie cytuj ani nie parafrazuj blisko cudzej mowy z danych (to tylko źródło wzorców); `make check` ostrzeże o powtórzeniach.",
-                     "Nie obiecuj niczego, czego dane nie pokazują. Nazwy skilli i narzędzi podawaj tylko takie, które widać w sekcji „Z ekranów”."],
+                     "Nie obiecuj niczego, czego dane nie pokazują. Nazwy skilli i narzędzi podawaj tylko takie, które widać w sekcji „Z ekranów”.",
+                     "Zakończenie (cta) ma skłonić do wysłania rolki komuś albo do komentarza ze słowem-kluczem (np. „napisz TEST”): wysłania i komentarze liczą się dla zasięgu bardziej niż polubienia.",
+                     "Opis (caption): słowa kluczowe tematu w pierwszych zdaniach; hashtagów 3-5, bez masy tagów.",
+                     "Rolka jest oznaczona jako stworzona z użyciem AI (maskotka i lektor są syntetyczne): nie udawaj człowieka."],
            "data": "Co pokazują dane", "hooks": "Typy hooków i mediana wyświetleń", "feat": "Cechy wyraźnie powiązane z wyświetleniami (99% przedział)",
            "names": "Z ekranów (do wykorzystania jako temat, nie do przepisywania)", "none": "brak", "out": "Format odpowiedzi",
            "outtxt": "Odpowiedz wyłącznie JSON-em w tym kształcie, zapisz do pliku `rolka.json` w folderze `rolki`:", "next": "Potem: `reel-intel make check rolki\\rolka.json` i `reel-intel make render rolki\\rolka.json`.",
@@ -56,7 +61,10 @@ BRIEF = {
                      "One idea per reel. 4-8 scenes, one short sentence each.",
                      "Only 2-6 words on screen per scene (a slogan); do not repeat the voice-over sentence.",
                      "Write from scratch in your own words. Do not quote or closely paraphrase other people's speech from the data (it is a source of patterns only); `make check` warns about repeats.",
-                     "Promise nothing the data does not show. Name only skills and tools that appear in the \"From the screens\" section."],
+                     "Promise nothing the data does not show. Name only skills and tools that appear in the \"From the screens\" section.",
+                     "The call to action (cta) should make people send the reel to someone or comment a keyword (e.g. \"comment TEST\"): sends and comments count for reach more than likes.",
+                     "Caption: the topic's keywords in the first sentences; 3-5 hashtags, not a wall of tags.",
+                     "The reel is labelled as made with AI (the mascot and the voice are synthetic): do not pretend to be a person."],
            "data": "What the data shows", "hooks": "Hook types and median views", "feat": "Features clearly tied to views (99% interval)",
            "names": "From the screens (use as a topic, do not copy)", "none": "none", "out": "Answer format",
            "outtxt": "Answer with JSON only, in this shape, saved as `rolka.json` in the `rolki` folder:", "next": "Then: `reel-intel make check rolki\\rolka.json` and `reel-intel make render rolki\\rolka.json`.",
@@ -179,6 +187,41 @@ def _wav_info(p):
         return w.getnframes() / w.getframerate(), w.getframerate(), w.getnchannels(), w.getsampwidth()
 
 
+def align_words(wav, lang, words):
+    """[(start, end)] of every script word inside one voice file, read off the speech itself (Whisper word timestamps), matched to the script's words;
+    None when the model is not available. Words it did not hear get evenly spaced times between their neighbours."""
+    try:
+        from .common import whisper_model
+        segs, _ = whisper_model().transcribe(str(wav), language=lang, word_timestamps=True, beam_size=1, vad_filter=False, condition_on_previous_text=False)
+        heard = [(w.word, w.start, w.end) for s in segs for w in (s.words or [])]
+    except Exception:
+        return None
+    if not heard:
+        return None
+    norm = lambda s: re.sub(r"[\W_]", "", s.lower())
+    sm = difflib.SequenceMatcher(None, [norm(w) for w in words], [norm(h[0]) for h in heard], autojunk=False)
+    out = [None] * len(words)
+    for tag, i1, i2, j1, j2 in sm.get_opcodes():
+        if tag == "equal":
+            for k in range(i2 - i1):
+                out[i1 + k] = (heard[j1 + k][1], heard[j1 + k][2])
+    end_all = heard[-1][2]
+    i = 0
+    while i < len(out):                                                      # fill the gaps
+        if out[i] is None:
+            j = i
+            while j < len(out) and out[j] is None:
+                j += 1
+            lo = out[i - 1][1] if i > 0 else 0.0
+            hi = out[j][0] if j < len(out) else end_all
+            for k in range(i, j):
+                out[k] = (lo + (hi - lo) * (k - i) / (j - i), lo + (hi - lo) * (k - i + 1) / (j - i))
+            i = j
+        else:
+            i += 1
+    return out
+
+
 def timeline(script, tmp):
     """[{text, screen, start, end, words:[(word, t0, t1)], wav}] and the combined audio path (None when no voice is available)"""
     import numpy as np
@@ -197,9 +240,13 @@ def timeline(script, tmp):
             dur = max(1.6, len(text.split()) / WPS)
         ws = text.split()
         tot = sum(len(w) + 1 for w in ws)
+        al = align_words(wav, script["lang"], ws) if have_voice else None     # the real word times, when the voice exists
         c, words = 0, []
-        for w in ws:                                                         # a word's share of the sentence, by its length: no timing from the engine is needed
-            words.append((w, t + dur * c / tot, t + dur * (c + len(w) + 1) / tot))
+        for k, w in enumerate(ws):
+            if al:
+                words.append((w, t + al[k][0], t + max(al[k][1], al[k][0] + 0.05)))
+            else:                                                            # otherwise a word's share of the sentence, by its length
+                words.append((w, t + dur * c / tot, t + dur * (c + len(w) + 1) / tot))
             c += len(w) + 1
         scenes.append({"text": text, "screen": screen, "emphasis": [re.sub(r"\W", "", e.lower()) for e in emph], "chips": [str(c) for c in chips][:4], "start": t, "end": t + dur, "words": words, "wav": wav if have_voice else None})
         t += dur + GAP
@@ -321,13 +368,70 @@ def frame(t, scenes, total, base):
     return np.asarray(img)
 
 
+def mouth_track(audio, scenes, total):
+    """how open the mascot's mouth is at every video frame, 0..1: the loudness of the voice, so it works in any language.
+    Without a voice file the mouth moves during each spoken word instead."""
+    import numpy as np
+    n = int(total * FPS) + 1
+    v = np.zeros(n)
+    if audio:
+        with wave.open(str(audio)) as w:
+            sr = w.getframerate()
+            x = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16).astype("float32") / 32768.0
+        hop = max(1, int(sr / FPS))
+        for i in range(n):
+            seg = x[i * hop:(i + 1) * hop]
+            v[i] = math.sqrt(float(np.mean(seg ** 2))) if len(seg) else 0.0
+        loud = v[v > 1e-3]
+        ref = float(np.percentile(loud, 90)) if len(loud) else 1.0
+        v = np.clip(v / max(ref, 1e-6), 0, 1) ** 0.8
+        v[v < 0.05] = 0
+    else:
+        for s in scenes:
+            for _w, a, b in s["words"]:
+                for k in range(int(a * FPS), min(n, int(b * FPS))):
+                    v[k] = 0.35 + 0.45 * abs(math.sin(k * 1.3))
+    out, prev = [], 0.0
+    for q in v:                                                              # opens fast, closes a little slower: it looks like a mouth
+        prev = float(q) if q > prev else prev * 0.55 + float(q) * 0.45
+        out.append(round(prev, 3))
+    return out
+
+
+_VIS = {}
+for _ch, _v in (("aą", 1), ("eę", 2), ("iy", 3), ("oó", 4), ("u", 5), ("mbp", 6), ("fvw", 7), ("szźżśćc", 8)):
+    for _c in _ch:
+        _VIS[_c] = _v
+
+
+def viseme_track(scenes, mouth, total):
+    """mouth shape per frame (0 rest, 1 A, 2 E, 3 I, 4 O, 5 U, 6 M B P, 7 F V, 8 S Z, 9 other): the letters of each word share the word's time
+    (vowels count double), and a frame where the voice is silent stays at rest. Works for Polish and English spelling alike."""
+    n = int(total * FPS) + 1
+    vis = [0] * n
+    for s in scenes:
+        for w, a, b in s["words"]:
+            letters = [c for c in w.lower() if c.isalpha()]
+            if not letters:
+                continue
+            wts = [2.0 if _VIS.get(c) in (1, 2, 3, 4, 5) else 1.0 for c in letters]
+            tot, acc = sum(wts), 0.0
+            for c, wt in zip(letters, wts):
+                lo = a + (b - a) * acc / tot
+                acc += wt
+                hi = a + (b - a) * acc / tot
+                for k in range(int(lo * FPS), min(n, max(int(lo * FPS) + 1, int(hi * FPS)))):
+                    vis[k] = _VIS.get(c, 9)
+    return [v if (i < len(mouth) and mouth[i] > 0.05) else 0 for i, v in enumerate(vis)]
+
+
 def studio_dir():
     """the Remotion project (studio/ next to the source checkout, or $REEL_STUDIO) when `npm install` was run there"""
     d = Path(os.environ.get("REEL_STUDIO") or Path(__file__).resolve().parents[2] / "studio")
     return d if (d / "node_modules" / ".bin").is_dir() and (d / "src" / "Reel.tsx").exists() else None
 
 
-def render_remotion(scenes, total, audio, out, studio):
+def render_remotion(script, scenes, total, audio, out, studio):
     """the animated version: the timeline and the voice are made here, Remotion draws the pictures"""
     npx = shutil.which("npx.cmd") or shutil.which("npx")
     if not npx:
@@ -335,7 +439,8 @@ def render_remotion(scenes, total, audio, out, studio):
     work = studio / "public" / "_work"
     work.mkdir(parents=True, exist_ok=True)
     tag = uuid.uuid4().hex[:8]
-    props = {"total": total, "audio": "", "scenes": [{"text": s["text"], "screen": s["screen"], "emphasis": s["emphasis"], "chips": s.get("chips", []),
+    mouth = mouth_track(audio, scenes, total)
+    props = {"total": total, "audio": "", "mascot": bool(script.get("mascot", True)), "mouth": mouth, "vis": viseme_track(scenes, mouth, total), "scenes": [{"text": s["text"], "screen": s["screen"], "emphasis": s["emphasis"], "chips": s.get("chips", []),
                                                         "start": s["start"], "end": s["end"], "words": [[w, a, b] for w, a, b in s["words"]]} for s in scenes]}
     if audio:
         shutil.copy(audio, work / f"{tag}.wav")
@@ -360,7 +465,7 @@ def render(script, out_mp4, simple=False):
     with tempfile.TemporaryDirectory(prefix="reelmake_") as tmp:
         scenes, total, audio = timeline(script, tmp)
         studio = None if simple else studio_dir()
-        if studio and render_remotion(scenes, total, audio, out, studio):
+        if studio and render_remotion(script, scenes, total, audio, out, studio):
             cap = (script.get("caption") or "").strip() + "\n\n" + " ".join(script.get("hashtags") or []) + "\n"
             out.with_name(out.stem + "_opis.txt").write_text(cap, encoding="utf-8")
             return out

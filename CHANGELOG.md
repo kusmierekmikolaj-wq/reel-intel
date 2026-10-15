@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Mascot for `make render` (Remotion): mouth shapes from the sounds, word times from the voice, eyebrows, waving, gestures on emphasised words.
 - `reel-intel make` (brief, check, render): new reels from the data, voice-over and animated captions; app section "Reels"; optional Remotion project in `studio/`. See docs/MAKE.md.
 
 ## 0.4.1 (2026-10-14)

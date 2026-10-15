@@ -1,4 +1,5 @@
 import React from "react";
+import { Mascot } from "./Mascot";
 import { AbsoluteFill, Audio, Easing, Sequence, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 
 export type Scene = {
@@ -10,7 +11,7 @@ export type Scene = {
   end: number;
   words: [string, number, number][];
 };
-export type ReelProps = { scenes: Scene[]; total: number; audio?: string };
+export type ReelProps = { scenes: Scene[]; total: number; audio?: string; mouth?: number[]; vis?: number[]; mascot?: boolean };
 
 const NAVY = "#0A1733";
 const PAPER = "#F2EEE3";
@@ -45,7 +46,7 @@ const Slogan: React.FC<{ text: string }> = ({ text }) => {
   const { fps } = useVideoConfig();
   const words = text.split(/\s+/).filter(Boolean);
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "0 34px", padding: "0 80px", fontFamily: DISPLAY, fontWeight: 700, fontSize: words.join(" ").length > 22 ? 142 : 168, lineHeight: 1.04, letterSpacing: -4, color: PAPER, textAlign: "center" }}>
+    <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "0 34px", padding: "0 80px", fontFamily: DISPLAY, fontWeight: 700, fontSize: words.join(" ").length > 22 ? 118 : 138, lineHeight: 1.04, letterSpacing: -4, color: PAPER, textAlign: "center" }}>
       {words.map((w, i) => {
         const p = spring({ frame: f - i * 4, fps, config: { damping: 18, stiffness: 120 } });
         return (
@@ -115,7 +116,7 @@ const Subtitle: React.FC<{ scene: Scene }> = ({ scene }) => {
   );
 };
 
-const SceneView: React.FC<{ scene: Scene; last: boolean }> = ({ scene, last }) => {
+const SceneView: React.FC<{ scene: Scene; last: boolean; mascotOn: boolean }> = ({ scene, last, mascotOn }) => {
   const f = useCurrentFrame();
   const { fps } = useVideoConfig();
   const len = Math.ceil((scene.end + GAP - scene.start + 0.1) * fps);
@@ -123,7 +124,7 @@ const SceneView: React.FC<{ scene: Scene; last: boolean }> = ({ scene, last }) =
   const opacity = last ? 1 : out;
   return (
     <AbsoluteFill style={{ opacity, filter: `blur(${(1 - opacity) * 10}px)`, transform: `translateY(${(1 - opacity) * -40}px)` }}>
-      <div style={{ position: "absolute", left: 0, right: 0, top: 300, display: "flex", flexDirection: "column", alignItems: "center", minHeight: 760, justifyContent: "center" }}>
+      <div style={{ position: "absolute", left: 0, right: 0, top: mascotOn ? 720 : 300, display: "flex", flexDirection: "column", alignItems: "center", minHeight: mascotOn ? 400 : 760, justifyContent: "center" }}>
         {scene.screen ? <Slogan text={scene.screen} /> : <Pulse />}
         {scene.chips && scene.chips.length ? <Chips chips={scene.chips} /> : null}
       </div>
@@ -134,18 +135,32 @@ const SceneView: React.FC<{ scene: Scene; last: boolean }> = ({ scene, last }) =
   );
 };
 
-export const Reel: React.FC<ReelProps> = ({ scenes, total, audio }) => {
+export const Reel: React.FC<ReelProps> = ({ scenes, total, audio, mouth, vis, mascot }) => {
   const f = useCurrentFrame();
   const { fps } = useVideoConfig();
+  const now = f / fps;
+  let emph = 0;                                                             // 1 right when an emphasised word starts, fading over half a second
+  let scanning = false;                                                     // the current scene shows names found on a screen
+  for (const s of scenes) {
+    if (now >= s.start - 0.1 && now <= s.end + 0.2 && s.chips && s.chips.length) scanning = true;
+    for (const [w, a] of s.words) {
+      if (s.emphasis.includes(clean(w))) emph = Math.max(emph, interpolate(now - a, [-0.05, 0, 0.5], [0, 1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }));
+    }
+  }
   return (
     <AbsoluteFill style={{ backgroundColor: NAVY }}>
       <Background />
+      {mascot !== false ? (
+        <div style={{ position: "absolute", left: 0, right: 0, top: 110, display: "flex", justifyContent: "center" }}>
+          <Mascot mouth={mouth || []} vis={vis || []} emph={emph} scanning={scanning} size={520} />
+        </div>
+      ) : null}
       {scenes.map((s, i) => {
         const from = Math.max(0, Math.floor((s.start - 0.1) * fps));
         const dur = Math.ceil((s.end + GAP - s.start + 0.1) * fps);
         return (
           <Sequence key={i} from={from} durationInFrames={dur} layout="none">
-            <SceneView scene={s} last={i === scenes.length - 1} />
+            <SceneView scene={s} last={i === scenes.length - 1} mascotOn={mascot !== false} />
           </Sequence>
         );
       })}
