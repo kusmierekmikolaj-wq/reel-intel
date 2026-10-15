@@ -2,6 +2,7 @@
 
   reel-intel make brief            BRIEF_ROLKI.md / REEL_BRIEF.md: what the data says works + the exact JSON an agent (Claude, Jarvis) must return
   reel-intel make check FILE       is the script usable (length, hook, nothing copied from the scanned videos)
+  reel-intel make qa FILE.mp4      checks a rendered reel: gaps between scenes, cut-off sentences, rumble, loudness, clipping, mouth sync (--selftest)
   reel-intel make render FILE      FILE.mp4 (1080x1920, H.264 + AAC) + FILE_opis.txt, voice-over + animated words, all on this computer
                                    animated version needs `npm install` in studio/ (Remotion); otherwise a simpler renderer runs (--simple forces it)
 
@@ -161,7 +162,225 @@ def check(script):
 
 # ---------------------------------------------------------------- voice
 
-def tts(text, lang, out_wav, rate=0):
+VOICES_DIR = Path.home() / ".reel-intel" / "voices"
+PIPER_MODELS = {"pl": "pl_PL-darkman-medium.onnx", "en": "en_US-ryan-high.onnx"}               # male voices
+EDGE_VOICES = {"pl": "pl-PL-MarekNeural", "en": "en-US-GuyNeural"}                          # male voices
+
+
+def _piper_model(lang):
+    p = Path(os.environ.get("REEL_PIPER_MODEL") or VOICES_DIR / PIPER_MODELS.get(lang, ""))
+    return p if p.is_file() else None
+
+
+TTS_PYTHON = Path(os.environ.get("REEL_TTS_PYTHON") or Path.home() / ".reel-intel" / "venv-tts" / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python"))
+
+
+def voice_sample(script):
+    """the reference recording for a cloned voice: script["voice_sample"], $REEL_VOICE_SAMPLE or ~/.reel-intel/voices/moj_glos.wav"""
+    if script.get("voice_sample") == "none":                                  # the model's own voice, no cloning
+        return None
+    p = Path(script.get("voice_sample") or os.environ.get("REEL_VOICE_SAMPLE") or VOICES_DIR / "moj_glos.wav")
+    return p if p.is_file() else None
+
+
+def chatterbox_ready(script):
+    return TTS_PYTHON.is_file() and voice_sample(script) is not None
+
+
+def chatterbox_batch(script, lines, tmp):
+    """all sentences in ONE run of the Chatterbox environment (the model loads once), `takes` recordings of each; the best heard one becomes
+    tmp/s<i>.wav. Returns True when every file exists"""
+    takes = int(script.get("takes", 3))
+    spoken = [spoken_form(text, script["lang"], script.get("say")) for text in lines]
+    spec = {"lang": script["lang"], "ref": str(voice_sample(script) or ""), "exaggeration": script.get("exaggeration", 0.85), "cfg": script.get("cfg", 0.3), "takes": takes,
+            "jobs": [{"text": sp[0], "out": str(Path(tmp) / f"s{i}.wav")} for i, sp in enumerate(spoken)]}
+    jf = Path(tmp) / "chatterbox_jobs.json"
+    jf.write_text(json.dumps(spec, ensure_ascii=False), encoding="utf-8")
+    try:
+        r = subprocess.run([str(TTS_PYTHON), str(Path(__file__).with_name("chatterbox_cli.py")), str(jf)], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=1800,
+                           env={**os.environ, "PYTHONIOENCODING": "utf-8"})
+        if r.returncode != 0:
+            print("chatterbox:", (r.stderr or r.stdout)[-400:])
+    except Exception as e:
+        print(f"chatterbox: {e}")
+    if takes > 1:
+        for i, (_text, toks, _owner) in enumerate(spoken):
+            best = pick_take([Path(tmp) / f"s{i}_t{k}.wav" for k in range(takes)], script["lang"], toks)
+            if best:
+                shutil.copy(best, Path(tmp) / f"s{i}.wav")
+    if script.get("learn", True):
+        learn_pronunciation(script, lines, spoken, tmp, spec)
+    if script.get("fix_pace", True):
+        fix_pace(script, lines, spoken, tmp, spec)
+    return all((Path(tmp) / f"s{i}.wav").exists() for i in range(len(lines)))
+
+
+PACE_MAX = 8.0                                                                  # syllables a second; natural Polish is about 4-7.5
+
+
+def speech_rate(wav, lang, text, toks):
+    """syllables a second between the first and the last heard word, and how much of the sentence was heard"""
+    from . import pronounce
+    al, r, _m, _h = align_words(wav, lang, toks)
+    if not al:
+        return None, None
+    return pronounce.syllable_count(text) / max(al[-1][1] - al[0][0], 0.2), r or 0.0
+
+
+def fix_pace(script, lines, spoken, tmp, spec):
+    """a sentence spoken too fast is recorded again, steadier (higher cfg) and calmer (lower exaggeration); the take with a natural pace and the
+    words heard best replaces it"""
+    lang = script["lang"]
+    jobs, plan = [], []
+    for i, (say_text, toks, _owner) in enumerate(spoken):
+        wav = Path(tmp) / f"s{i}.wav"
+        if not wav.exists():
+            continue
+        rate, heard = speech_rate(wav, lang, lines[i], toks)
+        if rate is None or rate <= PACE_MAX:
+            continue
+        for k in range(2):
+            out = Path(tmp) / f"s{i}_p{k}.wav"
+            jobs.append({"text": say_text, "out": str(out)})
+            plan.append((i, out, rate, heard))
+        print(f"pace: scene {i + 1} at {rate:.1f} syllables/s, recording it again slower")
+    if not jobs:
+        return
+    slow = {**spec, "takes": 1, "jobs": jobs, "cfg": min(0.8, float(spec.get("cfg", 0.3)) + 0.25), "exaggeration": max(0.3, float(spec.get("exaggeration", 0.85)) - 0.15)}
+    jf = Path(tmp) / "chatterbox_pace.json"
+    jf.write_text(json.dumps(slow, ensure_ascii=False), encoding="utf-8")
+    try:
+        subprocess.run([str(TTS_PYTHON), str(Path(__file__).with_name("chatterbox_cli.py")), str(jf)], capture_output=True, text=True, encoding="utf-8",
+                       errors="replace", timeout=1800, env={**os.environ, "PYTHONIOENCODING": "utf-8"})
+    except Exception as e:
+        print(f"chatterbox pace: {e}")
+        return
+    chosen = {}
+    for i, out, rate0, heard0 in plan:
+        if not out.exists():
+            continue
+        rate, heard = speech_rate(out, lang, lines[i], spoken[i][1])
+        if rate is None or heard < heard0 - 0.01:                              # never trade a correct sentence for a slower wrong one
+            continue
+        score = (rate <= PACE_MAX, heard, -abs(rate - 6.0))
+        if score > chosen.get(i, (rate0 <= PACE_MAX, heard0, -abs(rate0 - 6.0))):  # only a take better than what is there
+            chosen[i] = score
+            shutil.copy(out, Path(tmp) / f"s{i}.wav")
+            print(f"pace: scene {i + 1} now {rate:.1f} syllables/s")
+
+
+def learn_pronunciation(script, lines, spoken, tmp, spec):
+    """words still not heard after the best take: try respellings in one more Chatterbox run, keep the take that fixes them and remember what worked"""
+    from . import pronounce
+    lang = script["lang"]
+    plan, jobs = [], []
+    for i, (_text, toks, owner) in enumerate(spoken):
+        wav = Path(tmp) / f"s{i}.wav"
+        if not wav.exists():
+            continue
+        disp = lines[i].split()
+        al, r, m, hn = align_words(wav, lang, toks)
+        if al is None:
+            continue
+        bad = [j for j, h in enumerate(word_hits(disp, owner, m, hn)) if not h][:3]
+        cands = {j: pronounce.candidates(disp[j], lang) for j in bad}
+        for k in range(2):
+            extra, used = dict(script.get("say") or {}), {}
+            for j in bad:
+                if len(cands[j]) > k:
+                    extra[pronounce.key(disp[j])] = cands[j][k]
+                    used[j] = cands[j][k]
+            if not used:
+                continue
+            sp = spoken_form(lines[i], lang, extra)
+            out = Path(tmp) / f"s{i}_r{k}.wav"
+            jobs.append({"text": sp[0], "out": str(out)})
+            plan.append((i, used, sp, out, r or 0.0))
+    if not jobs:
+        return
+    jf = Path(tmp) / "chatterbox_retry.json"
+    jf.write_text(json.dumps({**spec, "takes": 1, "jobs": jobs}, ensure_ascii=False), encoding="utf-8")
+    try:
+        subprocess.run([str(TTS_PYTHON), str(Path(__file__).with_name("chatterbox_cli.py")), str(jf)], capture_output=True, text=True, encoding="utf-8",
+                       errors="replace", timeout=1800, env={**os.environ, "PYTHONIOENCODING": "utf-8"})
+    except Exception as e:
+        print(f"chatterbox retry: {e}")
+        return
+    best = {}
+    for i, used, sp, out, r0 in plan:
+        if not out.exists():
+            continue
+        disp = lines[i].split()
+        _al, r, m, hn = align_words(out, lang, sp[1])
+        hits = word_hits(disp, sp[2], m or [False] * len(sp[1]), hn)
+        for j, say in used.items():
+            pronounce.record(lang, disp[j], say, hits[j])
+            print(f"pronunciation: {disp[j]!r} as {say!r}: {'fixed, remembered' if hits[j] else 'did not help'}")
+        if r is not None and r > max(r0, best.get(i, 0.0)):
+            best[i] = r
+            shutil.copy(out, Path(tmp) / f"s{i}.wav")
+
+
+def engine_for(script):
+    """which voice engine: script["voice"] ("piper", "edge", "sapi"), else $REEL_VOICE, else the first that is ready: Piper (local), then Windows"""
+    want = (script.get("voice") or os.environ.get("REEL_VOICE") or "").lower()
+    if want in ("chatterbox", "piper", "edge", "sapi"):
+        return want
+    if chatterbox_ready(script):                                              # a cloned voice of your own beats the stock ones
+        return "chatterbox"
+    try:
+        import piper  # noqa: F401
+        if _piper_model(script.get("lang", "pl")):
+            return "piper"
+    except ImportError:
+        pass
+    return "sapi"
+
+
+def tts_piper(text, lang, out_wav):
+    """a local neural voice (Piper, MIT licence): free, offline, no account"""
+    model = _piper_model(lang)
+    if not model:
+        return False
+    try:
+        from piper import PiperVoice
+        v = _PIPER.get(str(model)) or _PIPER.setdefault(str(model), PiperVoice.load(str(model)))
+        with wave.open(str(out_wav), "wb") as w:
+            v.synthesize_wav(text, w)
+        return Path(out_wav).stat().st_size > 1000
+    except Exception as e:
+        print(f"piper: {e}")
+        return False
+
+
+_PIPER = {}
+
+
+def tts_edge(text, lang, out_wav):
+    """Microsoft's neural voice through the Edge browser's read-aloud service (edge-tts). It is an UNOFFICIAL route: fine to try, not to build a product on"""
+    try:
+        import asyncio
+        import edge_tts
+        mp3 = str(out_wav) + ".mp3"
+        asyncio.run(edge_tts.Communicate(text, EDGE_VOICES.get(lang, EDGE_VOICES["en"])).save(mp3))
+        r = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", mp3, "-ac", "1", "-ar", "24000", str(out_wav)], capture_output=True)
+        Path(mp3).unlink(missing_ok=True)
+        return r.returncode == 0 and Path(out_wav).exists()
+    except Exception as e:
+        print(f"edge-tts: {e}")
+        return False
+
+
+def tts(text, lang, out_wav, rate=0, engine="sapi"):
+    """voice-over: Piper, edge-tts or the Windows speech engine; a failing engine falls back to Windows. False where nothing works"""
+    if engine == "piper" and tts_piper(text, lang, out_wav):
+        return True
+    if engine == "edge" and tts_edge(text, lang, out_wav):
+        return True
+    return tts_sapi(text, lang, out_wav, rate)
+
+
+def tts_sapi(text, lang, out_wav, rate=0):
     """voice-over with the Windows speech engine (System.Speech, no extra install); returns False where it is not available"""
     if sys.platform != "win32":
         return False
@@ -195,9 +414,9 @@ def align_words(wav, lang, words):
         segs, _ = whisper_model().transcribe(str(wav), language=lang, word_timestamps=True, beam_size=1, vad_filter=False, condition_on_previous_text=False)
         heard = [(w.word, w.start, w.end) for s in segs for w in (s.words or [])]
     except Exception:
-        return None
+        return None, None, None, set()
     if not heard:
-        return None
+        return None, None, None, set()
     norm = lambda s: re.sub(r"[\W_]", "", s.lower())
     sm = difflib.SequenceMatcher(None, [norm(w) for w in words], [norm(h[0]) for h in heard], autojunk=False)
     out = [None] * len(words)
@@ -205,6 +424,8 @@ def align_words(wav, lang, words):
         if tag == "equal":
             for k in range(i2 - i1):
                 out[i1 + k] = (heard[j1 + k][1], heard[j1 + k][2])
+    matched = [o is not None for o in out]
+    ratio = sum(matched) / max(len(words), 1)                                   # how much of the script the voice engine really said
     end_all = heard[-1][2]
     i = 0
     while i < len(out):                                                      # fill the gaps
@@ -219,7 +440,95 @@ def align_words(wav, lang, words):
             i = j
         else:
             i += 1
-    return out
+    return out, ratio, matched, {norm(h[0]) for h in heard}
+
+
+LEXICON = {"pl": {"ai": "ej aj", "skill": "skil", "skille": "skile", "skilli": "skili", "skilla": "skila", "skillami": "skilami", "skillach": "skilach",
+                   "claude": "klołd", "chatgpt": "czat dżi pi ti", "gpt": "dżi pi ti", "github": "git hab", "n8n": "en osiem en", "mcp": "em ce pe",
+                   "api": "a pe i", "cta": "ce te a", "ugc": "u gie ce", "ux": "ju eks", "ui": "ju aj", "seo": "es i o", "saas": "sas", "prompt": "prompt",
+                   "prompty": "prompty", "cowork": "kołork", "gemini": "dżemini", "youtube": "jutub", "tiktok": "tiktok", "instagram": "instagram"},
+           "en": {}}
+
+
+def say_word(word, lang, extra=None):
+    """how a word should be spoken (script["say"] first, then the built-in lexicon): punctuation around the word is kept"""
+    m = re.match(r"^(\W*)(.*?)(\W*)$", word)
+    pre, core, post = m.group(1), m.group(2), m.group(3)
+    key = core.lower()
+    from . import pronounce
+    rep = (extra or {}).get(core) or (extra or {}).get(key) or pronounce.learned(lang).get(re.sub(r"[\W_]", "", key)) or LEXICON.get(lang, {}).get(key)
+    if rep and core[:1].isupper() and rep[:1].islower():
+        rep = rep[:1].upper() + rep[1:]                                       # keep a capital at the start of a sentence
+    return pre + rep + post if rep else word
+
+
+def spoken_form(text, lang, extra=None):
+    """the sentence as the voice engine should read it, the tokens it is made of, and which script word each token belongs to"""
+    disp = text.split()
+    parts = [say_word(w, lang, extra) for w in disp]
+    toks, owner = [], []
+    for i, p in enumerate(parts):
+        for tk in p.split():
+            toks.append(tk)
+            owner.append(i)
+    return " ".join(parts), toks, owner
+
+
+def word_hits(disp, owner, matched, heard_norms):
+    """per script word: was it heard (one of its spoken tokens matched, or the word itself as written was recognised)"""
+    norm = lambda s: re.sub(r"[\W_]", "", s.lower())
+    return [any(matched[k] for k in range(len(owner)) if owner[k] == i) or norm(w) in heard_norms for i, w in enumerate(disp)]
+
+
+def pick_take(takes, lang, toks):
+    """of several recordings of one sentence keep the one whose words are heard best (a mispronounced word is heard as another word)"""
+    best, best_r = None, -1.0
+    for p in takes:
+        if not Path(p).exists():
+            continue
+        _al, r, _m, _h = align_words(p, lang, toks)
+        r = r if r is not None else 0.0
+        if r > best_r:
+            best, best_r = p, r
+        if r >= 0.999:
+            break
+    return best
+
+
+def speech_end(path, floor_db=-38.0):
+    """seconds at which the voice file last rises above `floor_db` relative to its loudest 20 ms (None if unreadable)"""
+    import numpy as np
+    try:
+        with wave.open(str(path)) as w:
+            sr = w.getframerate()
+            x = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16).astype("float32") / 32768.0
+    except Exception:
+        return None
+    hop = max(1, int(sr * 0.02))
+    e = np.array([np.sqrt(np.mean(x[i:i + hop] ** 2)) + 1e-9 for i in range(0, len(x) - hop, hop)])
+    if not len(e):
+        return None
+    db = 20 * np.log10(e / e.max())
+    loud = np.where(db > floor_db)[0]
+    return float((loud[-1] + 1) * hop / sr) if len(loud) else None
+
+
+def trim_wav(path, seconds):
+    """cut a voice file to `seconds` with a short fade-out: the silence the voice engine leaves after the last word would only lengthen the gap"""
+    import numpy as np
+    with wave.open(str(path)) as w:
+        sr, ch, sw = w.getframerate(), w.getnchannels(), w.getsampwidth()
+        x = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16)
+    n = int(seconds * sr) * ch
+    x = x[:n].astype("float32")
+    f = min(len(x), int(0.06 * sr) * ch)
+    if f:
+        x[-f:] *= np.linspace(1, 0, f)
+    with wave.open(str(path), "wb") as w:
+        w.setnchannels(ch)
+        w.setsampwidth(sw)
+        w.setframerate(sr)
+        w.writeframes(x.astype("int16").tobytes())
 
 
 def timeline(script, tmp):
@@ -229,18 +538,42 @@ def timeline(script, tmp):
     if script.get("cta"):
         lines.append((script["cta"].strip(), "", [], []))
     scenes, t, chunks, sr = [], 0.4, [], 22050
+    engine = engine_for(script)
+    prebuilt = engine == "chatterbox" and chatterbox_batch(script, [l[0] for l in lines], tmp)
+    if engine == "chatterbox" and not prebuilt:
+        engine = "piper" if _piper_model(script.get("lang", "pl")) else "sapi"          # the cloned voice failed: say so and use a local one
     have_voice = True
     for i, (text, screen, emph, chips) in enumerate(lines):
         wav = Path(tmp) / f"s{i}.wav"
         dur = None
-        if have_voice and tts(text, script["lang"], str(wav), script.get("rate", 0)):
+        say_text, toks, owner = spoken_form(text, script["lang"], script.get("say"))
+        if have_voice and ((prebuilt and wav.exists()) or tts(say_text, script["lang"], str(wav), script.get("rate", 0), engine)):
             dur, sr, ch, sw = _wav_info(wav)
         else:
             have_voice = False
             dur = max(1.6, len(text.split()) / WPS)
         ws = text.split()
         tot = sum(len(w) + 1 for w in ws)
-        al = align_words(wav, script["lang"], ws) if have_voice else None     # the real word times, when the voice exists
+        tal, theard, tmatch, theardset = align_words(wav, script["lang"], toks) if have_voice else (None, None, None, set())     # the real word times, when the voice exists
+        al = heard = None
+        missed = []
+        if tal:                                                                # tokens back to script words (a respelled word may be several tokens)
+            al = [(min(tal[k][0] for k in range(len(toks)) if owner[k] == i), max(tal[k][1] for k in range(len(toks)) if owner[k] == i)) for i in range(len(ws))]
+            hit = word_hits(ws, owner, tmatch, theardset)
+            heard = sum(hit) / max(len(ws), 1)
+            missed = [w for w, h in zip(ws, hit) if not h]
+        tail = 0.0
+        if al and heard >= 0.5:
+            end_words = al[-1][1]
+            end_sound = speech_end(wav)                                        # the last moment the voice is really loud: a word the recognizer
+            end = max(end_words, end_sound or 0.0)                             # missed (e.g. "AI") must not be cut off
+            tail = max(0.0, dur - end)
+            keep = end + 0.18
+            if dur - keep > 0.05:                                              # dead air after the last word: cut it
+                trim_wav(wav, keep)
+                dur = keep
+            if end > end_words + 0.1 and al:                                   # stretch the last word to where the sound really ends
+                al[-1] = (al[-1][0], end)
         c, words = 0, []
         for k, w in enumerate(ws):
             if al:
@@ -248,7 +581,7 @@ def timeline(script, tmp):
             else:                                                            # otherwise a word's share of the sentence, by its length
                 words.append((w, t + dur * c / tot, t + dur * (c + len(w) + 1) / tot))
             c += len(w) + 1
-        scenes.append({"text": text, "screen": screen, "emphasis": [re.sub(r"\W", "", e.lower()) for e in emph], "chips": [str(c) for c in chips][:4], "start": t, "end": t + dur, "words": words, "wav": wav if have_voice else None})
+        scenes.append({"text": text, "screen": screen, "heard": heard, "missed": missed, "tail": round(tail, 2), "emphasis": [re.sub(r"\W", "", e.lower()) for e in emph], "chips": [str(c) for c in chips][:4], "start": t, "end": t + dur, "words": words, "wav": wav if have_voice else None})
         t += dur + GAP
     total = t + 0.6
     audio = None
@@ -431,7 +764,23 @@ def studio_dir():
     return d if (d / "node_modules" / ".bin").is_dir() and (d / "src" / "Reel.tsx").exists() else None
 
 
-def render_remotion(script, scenes, total, audio, out, studio):
+def final_audio(script, voice, total, tmp):
+    """the voice with a music bed under it (unless the script says "music": "off"); the voice alone when there is none or the mix fails"""
+    mode = script.get("music", "bed")
+    if not voice or mode == "off":
+        return voice
+    from . import music
+    src = mode if mode not in ("bed", True) else None
+    if src and not Path(src).is_file():
+        src = None
+    if not src:
+        src = Path(tmp) / "bed.wav"
+        music.write_wav(src, music.bed(total + 1))
+    mixed = Path(tmp) / "mixed.wav"
+    return mixed if music.mix(voice, src, mixed, float(script.get("music_volume", 0.38))) else voice
+
+
+def render_remotion(script, scenes, total, audio, out, studio, play=None):
     """the animated version: the timeline and the voice are made here, Remotion draws the pictures"""
     npx = shutil.which("npx.cmd") or shutil.which("npx")
     if not npx:
@@ -443,7 +792,7 @@ def render_remotion(script, scenes, total, audio, out, studio):
     props = {"total": total, "audio": "", "mascot": bool(script.get("mascot", True)), "mouth": mouth, "vis": viseme_track(scenes, mouth, total), "scenes": [{"text": s["text"], "screen": s["screen"], "emphasis": s["emphasis"], "chips": s.get("chips", []),
                                                         "start": s["start"], "end": s["end"], "words": [[w, a, b] for w, a, b in s["words"]]} for s in scenes]}
     if audio:
-        shutil.copy(audio, work / f"{tag}.wav")
+        shutil.copy(play or audio, work / f"{tag}.wav")
         props["audio"] = f"_work/{tag}.wav"
     pf = work / f"{tag}.json"
     pf.write_text(json.dumps(props, ensure_ascii=False), encoding="utf-8")
@@ -465,14 +814,21 @@ def render(script, out_mp4, simple=False):
     with tempfile.TemporaryDirectory(prefix="reelmake_") as tmp:
         scenes, total, audio = timeline(script, tmp)
         studio = None if simple else studio_dir()
-        if studio and render_remotion(script, scenes, total, audio, out, studio):
+        play = final_audio(script, audio, total, tmp)
+        side = {"total": total, "mouth": mouth_track(audio, scenes, total) if audio else [],
+                "scenes": [{"text": s["text"], "screen": s["screen"], "start": s["start"], "end": s["end"], "heard": s.get("heard"), "missed": s.get("missed", []), "tail": s.get("tail", 0),
+                            "words": [[w, a, b] for w, a, b in s["words"]]} for s in scenes]}
+        out.with_suffix(".qa.json").write_text(json.dumps(side, ensure_ascii=False), encoding="utf-8")
+        if audio:
+            shutil.copy(audio, out.with_name(out.stem + "_voice.wav"))
+        if studio and render_remotion(script, scenes, total, audio, out, studio, play):
             cap = (script.get("caption") or "").strip() + "\n\n" + " ".join(script.get("hashtags") or []) + "\n"
             out.with_name(out.stem + "_opis.txt").write_text(cap, encoding="utf-8")
             return out
         base = make_background()
         cmd = ["ffmpeg", "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-"]
         if audio:
-            cmd += ["-i", str(audio)]
+            cmd += ["-i", str(play or audio)]
         cmd += ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p", "-t", f"{total:.2f}"]
         cmd += (["-c:a", "aac", "-b:a", "160k", "-shortest"] if audio else ["-an"]) + ["-movflags", "+faststart", str(out)]
         p = subprocess.Popen(cmd, stdin=subprocess.PIPE)
@@ -493,6 +849,9 @@ def main(argv=None):
     sub = a.pop(0) if a else ""
     if sub == "brief":
         return brief() or 0
+    if sub == "qa":
+        from . import reel_qa
+        return reel_qa.main(a)
     if sub in ("check", "render") and a:
         script = load_script(a[0])
         probs = check(script)
@@ -506,6 +865,12 @@ def main(argv=None):
         out = Path(a[0]).with_suffix(".mp4")
         render(script, out, simple="--simple" in a)
         print(f"{out} ({out.stat().st_size // 1024} KB)")
+        try:
+            from . import reel_qa
+            print("reel check:")
+            reel_qa.report(reel_qa.run(out))
+        except Exception as e:                                             # the check never blocks the file
+            print(f"reel check skipped: {e}")
         return 0
     print(__doc__)
     return 2

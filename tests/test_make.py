@@ -9,6 +9,12 @@ import pytest
 from reel_intel import make
 
 
+@pytest.fixture(autouse=True)
+def no_cloned_voice(monkeypatch):
+    """the machine running the tests may have a cloned voice installed: tests must not call it"""
+    monkeypatch.setattr(make, "chatterbox_ready", lambda script: False)
+
+
 def good():
     return {"lang": "en", "scenes": [{"text": "Thirty reels and you watched none of them.", "screen": "30 reels"},
                                      {"text": "The program listens and writes it down.", "screen": "Speech to text"},
@@ -105,3 +111,82 @@ def test_mouth_track_without_a_voice_moves_only_during_words():
     scenes = [{"words": [("hello", 0.2, 0.6)]}]
     m = make.mouth_track(None, scenes, 1.0)
     assert max(m[6:18]) > 0.3 and m[-1] < 0.05
+
+
+def test_voice_engine_choice(monkeypatch, tmp_path):
+    monkeypatch.delenv("REEL_VOICE", raising=False)
+    assert make.engine_for({"voice": "edge"}) == "edge"
+    monkeypatch.setenv("REEL_VOICE", "sapi")
+    assert make.engine_for({"lang": "pl"}) == "sapi"
+    monkeypatch.delenv("REEL_VOICE")
+    monkeypatch.setattr(make, "VOICES_DIR", tmp_path)                           # no model in this folder: the Windows voice is the fallback
+    monkeypatch.delenv("REEL_PIPER_MODEL", raising=False)
+    assert make.engine_for({"lang": "pl"}) == "sapi"
+    (tmp_path / "pl_PL-darkman-medium.onnx").write_bytes(b"x")
+    try:
+        import piper  # noqa: F401
+        assert make.engine_for({"lang": "pl"}) == "piper"
+    except ImportError:
+        assert make.engine_for({"lang": "pl"}) == "sapi"
+
+
+def test_music_bed_has_the_right_length_and_is_not_silent():
+    from reel_intel import music
+    x = music.bed(6.0)
+    assert len(x) == int(6.0 * music.SR) and abs(x).max() > 0.5 and x[:200].std() < x[len(x) // 2:len(x) // 2 + 200].std()   # it fades in
+
+
+@pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg is not installed on this machine")
+def test_music_is_mixed_under_the_voice(tmp_path):
+    from reel_intel import music
+    import numpy as np
+    voice = tmp_path / "v.wav"
+    music.write_wav(voice, np.sin(np.linspace(0, 400, int(2 * music.SR))) * 0.5)
+    bed = tmp_path / "b.wav"
+    music.write_wav(bed, music.bed(2.0))
+    out = tmp_path / "m.wav"
+    assert music.mix(voice, bed, out) and out.stat().st_size > 1000
+
+
+def test_reel_qa_selftest_catches_every_injected_fault():
+    from reel_intel import reel_qa
+    caught, total = reel_qa.selftest()
+    assert caught == total
+
+
+def test_timeline_without_voice_still_reports_the_script_words(tmp_path, monkeypatch):
+    monkeypatch.setattr(make, "tts", lambda *a, **k: False)
+    scenes, _t, _a = make.timeline(good(), tmp_path)
+    assert scenes[0]["heard"] is None and scenes[0]["tail"] == 0.0
+
+
+def test_pronunciation_lexicon_and_token_mapping():
+    text, toks, owner = make.spoken_form("Zainstaluj skilli z AI.", "pl", {"zainstaluj": "zainstaluj"})
+    assert text == "Zainstaluj skili z Ej aj."
+    assert toks[-2:] == ["Ej", "aj."] and owner[-2:] == [3, 3]                 # one script word, two spoken tokens
+    assert make.say_word("Pliku,", "pl", {"pliku": "pli-ku"}) == "Pli-ku,"
+    assert make.spoken_form("Hello AI", "en")[0] == "Hello AI"                 # no Polish respelling in English
+
+
+def test_pronunciation_is_learned_and_reused(tmp_path, monkeypatch):
+    from reel_intel import pronounce
+    monkeypatch.setattr(pronounce, "STORE", tmp_path / "wymowa.json")
+    c = pronounce.candidates("pliku,")
+    assert "pli-ku" in c                                                       # syllables split for a clearer reading
+    assert pronounce.candidates("AI")[0] == "a i"                               # an acronym spelled out
+    assert "skil" in pronounce.candidates("skill")                              # English letter groups written the Polish way
+    pronounce.record("pl", "pliku", "pli-ku", ok=True)
+    assert make.say_word("pliku.", "pl") == "pli-ku."                         # the next reel uses what worked
+    pronounce.record("pl", "wyślę", "wy-ślę", ok=False)
+    assert "wy-ślę" not in pronounce.candidates("wyślę")                        # what failed is not tried again
+    assert pronounce.syllables("komentarzu") == "ko-men-ta-rzu"
+
+
+def test_speech_end_finds_a_last_word_the_recognizer_missed(tmp_path):
+    from reel_intel import music
+    import numpy as np
+    sr = music.SR
+    x = np.concatenate([np.sin(np.linspace(0, 900, sr)) * 0.5, np.zeros(sr // 2), np.sin(np.linspace(0, 300, sr // 3)) * 0.4, np.zeros(sr)])
+    p = tmp_path / "v.wav"
+    music.write_wav(p, x)
+    assert abs(make.speech_end(p) - (1.0 + 0.5 + 1 / 3)) < 0.05            # the quiet gap does not end the speech, the last "word" does

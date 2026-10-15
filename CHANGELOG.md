@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Voice engines (Chatterbox with voice cloning, Piper, edge-tts, Windows), pronunciation that learns from speech recognition, automatic pace fix, music bed with ducking, reel check (`make qa`) with a self-test of 8 injected faults.
 - Mascot for `make render` (Remotion): mouth shapes from the sounds, word times from the voice, eyebrows, waving, gestures on emphasised words.
 - `reel-intel make` (brief, check, render): new reels from the data, voice-over and animated captions; app section "Reels"; optional Remotion project in `studio/`. See docs/MAKE.md.
 
