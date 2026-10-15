@@ -1,5 +1,6 @@
 """reel-intel make: script check, timeline and a tiny render without a voice (the voice engine is stubbed)."""
 import json
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -52,6 +53,7 @@ def test_timeline_without_a_voice_uses_the_reading_speed(tmp_path, monkeypatch):
     assert total > scenes[-1]["end"]
 
 
+@pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg is not installed on this machine")
 def test_render_makes_a_vertical_h264_file(tmp_path, monkeypatch):
     monkeypatch.setattr(make, "tts", lambda *a, **k: False)
     monkeypatch.setattr(make, "FPS", 4)
