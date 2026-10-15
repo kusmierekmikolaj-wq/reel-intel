@@ -1,5 +1,8 @@
 # Changelog
 
+## Unreleased
+- `reel-intel make` (brief, check, render): new reels from the data, voice-over and animated captions; app section "Reels"; optional Remotion project in `studio/`. See docs/MAKE.md.
+
 ## 0.4.1 (2026-10-14)
 - `reel-intel report digest`: one file for an AI agent (speech, screen text, caption, names to check); `run` writes it and the app links it.
 - Screen reading samples two frames a second plus the last frame (a list scrolling past in a second was missed).

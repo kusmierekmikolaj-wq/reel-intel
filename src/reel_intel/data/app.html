@@ -108,6 +108,7 @@ footer { padding: 40px 0 60px; color: var(--muted); font-size: .82rem; border-to
     <span class="brand"><img src="/logo.svg" alt="" width="22" height="22">reel-intel</span>
     <a class="item" href="#analizy" data-t="nav_an"></a>
     <a class="item" href="#scan" data-t="nav_scan"></a>
+    <a class="item" href="#rolki" data-t="nav_make"></a>
     <span class="seg" role="group" aria-label="Language">
       <button type="button" id="b_pl" aria-pressed="false">PL</button><button type="button" id="b_en" aria-pressed="false">EN</button>
     </span>
@@ -177,6 +178,34 @@ footer { padding: 40px 0 60px; color: var(--muted); font-size: .82rem; border-to
   </div>
 </section>
 
+<section class="block alt" id="rolki">
+  <div class="wrap">
+    <p class="eyebrow" data-t="mk_eye"></p>
+    <h2 data-t="mk_h"></h2>
+    <p class="lead" data-t="mk_sub"></p>
+    <div class="panel">
+      <div class="row">
+        <div><label for="mk_acc" data-t="mk_acc"></label><select id="mk_acc"></select></div>
+        <div><label for="mk_name" data-t="mk_name"></label><input id="mk_name" value="rolka" maxlength="40"></div>
+      </div>
+      <label for="mk_script" data-t="mk_script"></label>
+      <textarea id="mk_script" spellcheck="false" style="min-height:230px"></textarea>
+      <div class="actions">
+        <button class="pill" id="mk_render" type="button" data-t="mk_render"></button>
+        <button class="btn2" id="mk_brief" type="button" data-t="mk_brief"></button>
+        <button class="btn2" id="mk_check" type="button" data-t="mk_check"></button>
+        <span class="state" id="mk_st" role="status" aria-live="polite"></span>
+      </div>
+      <pre id="mk_log" hidden></pre>
+      <details id="mk_bx" hidden><summary data-t="mk_bt"></summary><p style="margin:6px 0"><button class="btn2" id="mk_copy" type="button" data-t="copy"></button></p><pre id="mk_brief_text"></pre></details>
+    </div>
+    <div id="mk_out" hidden style="margin-top:34px">
+      <video id="mk_video" controls playsinline style="max-width:340px;width:100%;border-radius:24px;box-shadow:0 0 0 1px var(--line);background:#000"></video>
+      <p style="margin-top:12px"><a id="mk_dl" href="#" download data-t="mk_dl"></a> <span style="color:var(--muted)">·</span> <a id="mk_cap" href="#" target="_blank" rel="noopener" data-t="mk_cap"></a></p>
+    </div>
+  </div>
+</section>
+
 <footer><div class="wrap" data-t="foot"></div></footer>
 
 <script>
@@ -190,7 +219,7 @@ const T = {
     scan_h: "Nowy skan.", scan_sub: "Wklej linki do wideo z Instagrama, TikToka, YouTube, X lub Facebooka. Wszystko liczy się na tym komputerze.",
     links: "Linki (jeden w wierszu) lub wynik fragmentu kodu z przeglądarki", lang: "Język strony wyników", limit: "Maks. liczba wideo", go: "Skanuj",
     help: "Mam profil, nie pojedyncze linki", help_text: "Najprościej: zainstaluj wtyczkę z folderu „extension” (chrome://extensions, Tryb dewelopera, Załaduj rozpakowane), otwórz profil i kliknij wtyczkę. Bez wtyczki: Instagram, TikTok i Facebook nie pozwalają programowi wylistować profilu. Otwórz profil w swojej przeglądarce (zalogowanej), naciśnij F12, wybierz Konsola, wklej poniższy kod i Enter, a potem wklej wynik (ze schowka) do pola wyżej. Kanał YouTube możesz wkleić wprost.",
-    copy: "Kopiuj kod do przeglądarki", copied: "Skopiowano", details: "Szczegóły przebiegu", result: "Wynik", open_new: "Otwórz stronę w nowej karcie", screen: "Co było na ekranie (repozytoria, skille)", digest: "Plik dla agenta AI", reels: "wideo w danych",
+    copy: "Kopiuj kod do przeglądarki", copied: "Skopiowano", details: "Szczegóły przebiegu", result: "Wynik", open_new: "Otwórz stronę w nowej karcie", screen: "Co było na ekranie (repozytoria, skille)", nav_make: "Rolki", mk_eye: "Nowe rolki", mk_h: "Z danych do gotowej rolki.", mk_sub: "Scenariusz napisze Twój agent AI na podstawie briefu z danych, a program zrobi z niego film pionowy z lektorem i napisami. Nic nie jest publikowane.", mk_acc: "Dane konta", mk_name: "Nazwa pliku", mk_script: "Scenariusz (JSON z briefu)", mk_render: "Renderuj rolkę", mk_brief: "Brief dla agenta", mk_check: "Sprawdź scenariusz", mk_bt: "Brief do wklejenia agentowi", mk_dl: "Pobierz MP4", mk_cap: "Opis i hashtagi", mk_run: "Trwa praca…", mk_ok: "Gotowe.", mk_bad: "Błąd, szczegóły poniżej.", digest: "Plik dla agenta AI", reels: "wideo w danych",
     idle: "Gotowe do skanowania.", running: "Trwa skanowanie…", done: "Gotowe.", error: "Błąd, szczegóły poniżej.", none: "Wklej przynajmniej jeden poprawny link.",
     steps: ["Pobieranie i tekst", "Skróty", "Obraz i dźwięk", "Kontrola jakości", "Strona wyników"],
     foot: "Wszystko liczy się na tym komputerze. Wnioski to hipotezy z małych prób, nie dowody." },
@@ -202,7 +231,7 @@ const T = {
     scan_h: "New scan.", scan_sub: "Paste links to videos from Instagram, TikTok, YouTube, X or Facebook. Everything is computed on this computer.",
     links: "Links (one per line) or the output of the browser snippet", lang: "Result page language", limit: "Max videos", go: "Scan",
     help: "I have a profile, not single links", help_text: "Easiest: install the extension from the \"extension\" folder (chrome://extensions, Developer mode, Load unpacked), open the profile and click the extension. Without it: Instagram, TikTok and Facebook do not let a program list a profile. Open the profile in your own (logged-in) browser, press F12, choose Console, paste the code below and press Enter, then paste the result (from the clipboard) into the box above. A YouTube channel can be pasted as is.",
-    copy: "Copy the browser code", copied: "Copied", details: "Run details", result: "Result", open_new: "Open the page in a new tab", screen: "What was on screen (repos, skills)", digest: "File for an AI agent", reels: "videos in the data",
+    copy: "Copy the browser code", copied: "Copied", details: "Run details", result: "Result", open_new: "Open the page in a new tab", screen: "What was on screen (repos, skills)", nav_make: "Reels", mk_eye: "New reels", mk_h: "From data to a finished reel.", mk_sub: "Your AI agent writes the script from the brief built out of the data, and the program turns it into a vertical video with voice-over and captions. Nothing is published.", mk_acc: "Account data", mk_name: "File name", mk_script: "Script (the JSON from the brief)", mk_render: "Render the reel", mk_brief: "Brief for the agent", mk_check: "Check the script", mk_bt: "Brief to paste into the agent", mk_dl: "Download MP4", mk_cap: "Caption and hashtags", mk_run: "Working…", mk_ok: "Done.", mk_bad: "Error, details below.", digest: "File for an AI agent", reels: "videos in the data",
     idle: "Ready to scan.", running: "Scanning…", done: "Done.", error: "Error, details below.", none: "Paste at least one valid link.",
     steps: ["Download and text", "Short versions", "Picture and sound", "Quality check", "Result page"],
     foot: "Everything is computed on this computer. Conclusions are hypotheses from small samples, not proof." } };
@@ -252,7 +281,7 @@ function renderTiles() {
   const real = LIB.filter((x) => x.reels && ((x.letter && x.letter !== '+') || x.user));                       // analysed accounts: the lettered ones and the user's own scans, not test folders
   $('s_videos').textContent = real.reduce((n, x) => n + x.reels, 0); $('s_acc').textContent = real.length;
 }
-const loadLib = () => fetch('/api/library').then((r) => r.json()).then((j) => { LIB = j; renderTiles(); }).catch(() => {});
+const loadLib = () => fetch('/api/library').then((r) => r.json()).then((j) => { LIB = j; renderTiles(); mkFill(); }).catch(() => {});
 loadLib();
 
 function renderSteps(s) {
@@ -280,6 +309,35 @@ async function poll() {
   if (s.state === 'done' && !window.__libDone) { window.__libDone = true; loadLib(); } if (s.state === 'running') window.__libDone = false;
   if (s.state === 'running') setTimeout(poll, 1500); else $('go').disabled = false;
 }
+
+/* reels: brief -> script -> render */
+const MK_EXAMPLE = {pl: {title: "Przykład", lang: "pl", scenes: [{text: "Trzydzieści rolek konkurencji, a ty nie obejrzałeś żadnej.", screen: "30 rolek, zero oglądania", emphasis: ["żadnej"]}, {text: "Program słucha, co autor mówi, i zamienia to na tekst.", screen: "Mowa na tekst", emphasis: ["tekst"]}, {text: "Czyta też ekran, więc łapie nazwy skilli i komendy.", screen: "Czyta ekran", emphasis: []}], cta: "Napisz w komentarzu, jakie konto mam przeanalizować jako następne.", caption: "Opis rolki.", hashtags: ["#ai"]}, en: {title: "Example", lang: "en", scenes: [{text: "Thirty competitor reels and you watched none of them.", screen: "30 reels, zero watching", emphasis: ["none"]}, {text: "The program listens to the author and writes it down.", screen: "Speech to text", emphasis: []}, {text: "It reads the screen too, so it catches skill names and commands.", screen: "Reads the screen", emphasis: []}], cta: "Comment which account I should analyse next.", caption: "Reel caption.", hashtags: ["#ai"]}};
+function mkFill() {
+  const s = $('mk_acc'), keep = s.value; s.textContent = '';
+  LIB.filter((x) => x.reels && x.id !== '_compare').forEach((x) => { const o = document.createElement('option'); o.value = x.id; o.textContent = `${x.name || x.title} (${x.reels})`; s.append(o); });
+  if (keep) s.value = keep;
+  if (!$('mk_script').value) $('mk_script').value = JSON.stringify(MK_EXAMPLE[L], null, 2);
+}
+async function mkRun(action) {
+  const r = await fetch('/api/make', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Token': TOKEN }, body: JSON.stringify({ account: $('mk_acc').value, action, script: $('mk_script').value, name: $('mk_name').value, lang: L }) });
+  const j = await r.json();
+  if (!j.ok) { $('mk_st').textContent = j.msg; $('mk_st').className = 'state err'; return; }
+  mkPoll();
+}
+async function mkPoll() {
+  const s = await (await fetch('/api/make/state')).json();
+  $('mk_st').textContent = s.state === 'running' ? tx('mk_run') : s.state === 'done' ? tx('mk_ok') : s.state === 'error' ? tx('mk_bad') : '';
+  $('mk_st').className = 'state ' + (s.state === 'done' ? 'ok' : s.state === 'error' ? 'err' : '');
+  $('mk_log').hidden = !s.log; $('mk_log').textContent = s.log || '';
+  if (s.text) { $('mk_bx').hidden = false; $('mk_brief_text').textContent = s.text; }
+  if (s.video) { $('mk_out').hidden = false; $('mk_video').src = s.video + '?' + Date.now(); $('mk_dl').href = s.video; $('mk_cap').href = s.video.replace(/\.mp4$/, '_opis.txt'); }
+  ['mk_render', 'mk_brief', 'mk_check'].forEach((id) => { $(id).disabled = s.state === 'running'; });
+  if (s.state === 'running') setTimeout(mkPoll, 1200);
+}
+$('mk_render').addEventListener('click', () => mkRun('render'));
+$('mk_brief').addEventListener('click', () => mkRun('brief'));
+$('mk_check').addEventListener('click', () => mkRun('check'));
+$('mk_copy').addEventListener('click', async () => { try { await navigator.clipboard.writeText($('mk_brief_text').textContent); $('mk_copy').textContent = tx('copied'); } catch (e) {} });
 ui(); poll();
 </script>
 </body>

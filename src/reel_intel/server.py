@@ -14,7 +14,7 @@ import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import unquote
+from urllib.parse import quote, unquote
 
 from .common import CODE, DATA, WORK
 
@@ -142,6 +142,56 @@ def start_job(text, lang, limit):
     return True, "started"
 
 
+MAKE = {"state": "idle", "log": "", "video": None, "account": None, "text": ""}
+SLUG = re.compile(r"^[A-Za-z0-9_.-]{1,60}$")
+
+
+def make_base(account):
+    """folder of an analysed account; only ones the listing offers (no path tricks)"""
+    if account not in {x["id"] for x in library()} or account == "_compare":
+        return None
+    return WORK / account[5:] if account.startswith("scan:") else (LIBRARY / account if LIBRARY else None)
+
+
+def start_make(account, action, script_text, name, lang):
+    base = make_base(account)
+    if not base or action not in ("brief", "check", "render"):
+        return False, "unknown account or action"
+    slug = name if SLUG.match(name or "") else "rolka"
+    rd = base / "rolki"
+    path = rd / f"{slug}.json"
+    if action != "brief":
+        try:
+            json.loads(script_text)
+        except Exception:
+            return False, "the script is not valid JSON"
+    with LOCK:
+        if MAKE["state"] == "running":
+            return False, "a reel is being made"
+        MAKE.update(state="running", log="", video=None, account=account, text="")
+    rd.mkdir(exist_ok=True)
+    if action != "brief":
+        path.write_text(script_text, encoding="utf-8")
+    cmd = [sys.executable, "-m", "reel_intel.cli", "make", action] + ([str(path)] if action != "brief" else [])
+
+    def work():
+        try:
+            p = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900,
+                               env={**os.environ, "REEL_DATA": str(base), "REEL_UI_LANG": lang if lang in ("pl", "en") else "pl"})
+            MAKE["log"] = (p.stdout + p.stderr).strip()[-1500:]
+            if action == "render" and p.returncode == 0 and (rd / f"{slug}.mp4").exists():
+                MAKE["video"] = f"/rolki/{quote(account)}/{slug}.mp4"
+            if action == "brief" and p.returncode == 0:
+                f = next((base / n for n in ("BRIEF_ROLKI.md", "REEL_BRIEF.md") if (base / n).exists()), None)
+                MAKE["text"] = f.read_text(encoding="utf-8") if f else ""
+            MAKE["state"] = "done" if p.returncode == 0 else "error"
+        except Exception as e:
+            MAKE["log"] = f"error: {e}"
+            MAKE["state"] = "error"
+    threading.Thread(target=work, daemon=True).start()
+    return True, "started"
+
+
 def state():
     base = JOB["dir"] or WORK
     n = sum(1 for d in (base / "data").iterdir() if (d / "features.json").exists()) if (base / "data").exists() else 0
@@ -164,6 +214,39 @@ def grid_text(profile, items):
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *a):
         pass
+
+    def _send_file(self, path, ctype):
+        """a file with Range support (a video must be seekable)"""
+        size = path.stat().st_size
+        m = re.match(r"bytes=(\d*)-(\d*)", self.headers.get("Range") or "")
+        start, end, code = 0, size - 1, 200
+        if m and (m.group(1) or m.group(2)):
+            if m.group(1):
+                start = int(m.group(1))
+                end = int(m.group(2)) if m.group(2) else size - 1
+            else:
+                start = max(0, size - int(m.group(2)))
+            end, code = min(end, size - 1), 206
+            if start > end:
+                return self._send(416, "range not satisfiable")
+        self.send_response(code)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Accept-Ranges", "bytes")
+        self.send_header("Content-Length", str(end - start + 1))
+        if code == 206:
+            self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.end_headers()
+        with open(path, "rb") as fh:
+            fh.seek(start)
+            left = end - start + 1
+            while left > 0:
+                chunk = fh.read(min(65536, left))
+                if not chunk:
+                    break
+                self.wfile.write(chunk)
+                left -= len(chunk)
 
     def _send(self, code, body, ctype="text/html; charset=utf-8"):
         data = body if isinstance(body, bytes) else body.encode("utf-8")
@@ -208,6 +291,16 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, markdown_page((LIBRARY / "COMPARE.md").read_text(encoding="utf-8")))
             base = WORK / lid[5:] if lid.startswith("scan:") else LIBRARY / lid
             return self._send(200, (base / "Reele.html").read_bytes(), "text/html; charset=utf-8")
+        if self.path == "/api/make/state":
+            return self._send(200, json.dumps({k: MAKE[k] for k in ("state", "log", "video", "text")}, ensure_ascii=False), "application/json")
+        if self.path.startswith("/rolki/"):                                       # /rolki/<account>/<file>: only files of a listed account's rolki folder
+            parts = self.path.split("?")[0].split("/")
+            base = make_base(unquote(parts[2])) if len(parts) == 4 else None
+            name = unquote(parts[3]) if len(parts) == 4 else ""
+            types = {".mp4": "video/mp4", ".txt": "text/plain; charset=utf-8", ".json": "application/json"}
+            ext = Path(name).suffix.lower()
+            f = base / "rolki" / name if base and SLUG.match(name) and ext in types else None
+            return self._send_file(f, types[ext]) if f and f.is_file() else self._send(404, "not found")
         if self.path == "/digest":                                                 # one file for an AI agent: speech, screen text, caption, names to check
             base = JOB["dir"] or WORK
             f = next((base / n for n in ("DLA_AI.md", "FOR_AI.md") if (base / n).exists()), None)
@@ -256,6 +349,13 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200 if ok else 400, json.dumps({"ok": ok, "msg": msg}), "application/json")
         if not self._local() or self.headers.get("X-Token") != TOKEN:
             return self._send(403, json.dumps({"ok": False, "msg": "forbidden"}), "application/json")
+        if self.path == "/api/make":
+            try:
+                body = json.loads(self.rfile.read(min(int(self.headers.get("Content-Length", 0)), 200_000)) or b"{}")
+                ok, msg = start_make(str(body.get("account", "")), str(body.get("action", "")), str(body.get("script", "")), str(body.get("name", "rolka")), str(body.get("lang", "pl")))
+            except Exception as e:
+                ok, msg = False, f"bad request: {e}"
+            return self._send(200 if ok else 400, json.dumps({"ok": ok, "msg": msg}), "application/json")
         if self.path != "/api/run":
             return self._send(404, "not found")
         try:

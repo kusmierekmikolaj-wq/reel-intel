@@ -14,6 +14,7 @@
   reel-intel snippet             print a browser-console snippet that copies a profile's reel links (grid.tsv)
   reel-intel visuals             what the picture and sound show (cuts, face, on-screen text, burned-in captions): not only the transcript
   reel-intel report digest       ONE file for an AI agent: speech, on-screen text, caption and the skills/repos/commands to check (also written by `run`)
+  reel-intel make brief|check|render   a NEW reel from your data: brief for an agent -> script (rolka.json) -> check -> video with voice-over (docs/MAKE.md)
   reel-intel shorten             automatic short version (hook, key sentences, CTA, on-screen text); never overwrites one written by a person or Claude
   reel-intel scan|qa|report|page [...]   the individual steps
 Data folder: --data DIR, else $REEL_DATA, else ./reel-data.  Interface language: --lang or ui_language in <data>/config.yaml.
@@ -206,6 +207,8 @@ def main(argv=None):
         sys.argv = ["reel-intel score", *args]
         importlib.import_module("reel_intel.score").main()
         return 0
+    if cmd == "make":
+        return importlib.import_module("reel_intel.make").main(args)
     if cmd == "compare":
         sys.argv = ["reel-intel compare", *args]
         importlib.import_module("reel_intel.compare").main()

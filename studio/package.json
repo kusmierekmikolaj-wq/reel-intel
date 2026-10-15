@@ -1,0 +1,15 @@
+{
+  "name": "reel-intel-studio",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Remotion project that reel-intel make render uses for animated reels (optional; without it a simpler renderer is used)",
+  "scripts": {
+    "studio": "remotion studio src/index.ts"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.535",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "remotion": "^4.0.535"
+  }
+}
