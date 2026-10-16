@@ -524,3 +524,75 @@ def test_timeline_with_chatterbox_uses_the_takes_and_a_failed_retake_is_reported
     (tmp_path / "fresh").mkdir()
     make.timeline(s, tmp_path / "fresh", r2, meta3)
     assert meta3["engine_used"] == "piper" or meta3["engine_used"] == "sapi"                  # a first run with nothing recorded falls back to a local voice, and says so
+
+
+# ---------------------------------------------------------------- choosing the best take
+def test_the_take_whose_words_are_heard_best_wins_and_a_dragged_or_rushed_take_loses(tmp_path, monkeypatch):
+    takes = [tmp_path / f"t{k}.wav" for k in range(4)]
+    for t in takes:
+        t.write_bytes(b"x")
+    al = {"t0": ([(0.0, 0.3), (0.3, 0.6), (0.6, 0.9)], 0.8), "t1": ([(0.0, 0.3), (0.3, 0.6), (0.6, 2.4)], 1.0),         # t1: the last word is dragged for 1.8 s
+          "t2": ([(0.0, 0.5), (0.5, 1.0), (1.0, 1.5)], 1.0), "t3": ([(0.0, 0.05), (0.05, 0.1), (0.1, 0.15)], 1.0)}      # t3: far too fast
+
+    def fake_align(p, lang, toks, heard_out=None):
+        a, r = al[Path(p).stem]
+        return a, r, [True] * len(toks), set()
+    monkeypatch.setattr(make, "align_words", fake_align)
+    monkeypatch.setattr(make, "ears_score", lambda paths: {})
+    assert make.pick_take(takes, "pl", ["banana", "telefon", "komputer"]) == takes[2]                  # eight syllables: t3 is 50 a second, t2 is five
+    assert make.pick_take([tmp_path / "missing.wav"], "pl", ["a"]) is None
+
+
+def test_among_takes_that_are_heard_equally_well_the_one_with_the_least_breath_wins(tmp_path, monkeypatch):
+    takes = [tmp_path / f"t{k}.wav" for k in range(3)]
+    for t in takes:
+        t.write_bytes(b"x")
+    monkeypatch.setattr(make, "align_words", lambda p, lang, toks, heard_out=None: ([(0.0, 0.5), (0.5, 1.0)], 1.0, [True, True], set()))
+    breath = {str(takes[0]): {"breath": 0.30, "mean": 0.1}, str(takes[1]): {"breath": 0.02, "mean": 0.01}, str(takes[2]): {"breath": 0.11, "mean": 0.05}}
+    monkeypatch.setattr(make, "ears_score", lambda paths: breath)
+    assert make.pick_take(takes, "pl", ["a", "b"]) == takes[1]
+
+
+# ---------------------------------------------------------------- engine: the sound-event model and the recogniser
+def test_listen_returns_the_models_windows_or_none(tmp_path, monkeypatch):
+    mp4 = tmp_path / "r.mp4"
+    mp4.write_bytes(b"x")
+    assert qengine.listen(mp4, tts_python=tmp_path / "no-python.exe") is None
+
+    class Done:
+        returncode, stdout, stderr = 0, "", ""
+    calls = []
+
+    def fake_run(cmd, *a, **k):
+        calls.append(cmd)
+        if "ears.py" in str(cmd[1]):
+            Path(cmd[3]).write_text(json.dumps({"window": 1.0, "hop": 0.5, "windows": [{"t": 0.0, "labels": [["Speech", 0.9]]}]}), encoding="utf-8")
+        return Done()
+    monkeypatch.setattr(qengine.subprocess, "run", fake_run)
+    py = tmp_path / "py.exe"
+    py.write_bytes(b"x")
+    got = qengine.listen(mp4, tts_python=py)
+    assert got["windows"][0]["labels"][0][0] == "Speech" and any("ears.py" in str(c[1]) for c in calls if len(c) > 1)
+    monkeypatch.setattr(qengine.subprocess, "run", lambda *a, **k: Done())               # the model ran but wrote nothing
+    assert qengine.listen(mp4, tts_python=py) is None
+
+
+def test_rehear_returns_the_words_of_the_finished_file_or_none(tmp_path, monkeypatch):
+    import types
+
+    class W:
+        def __init__(self, w, s, e):
+            self.word, self.start, self.end = w, s, e
+
+    class Model:
+        def transcribe(self, *a, **k):
+            return [types.SimpleNamespace(words=[W(" Hello", 0.1, 0.4), W(" world", 0.4, 0.9)])], None
+
+    class Done:
+        returncode, stdout, stderr = 0, "", ""
+    from reel_intel import common
+    monkeypatch.setattr(common, "whisper_model", lambda: Model())
+    monkeypatch.setattr(qengine.subprocess, "run", lambda *a, **k: Done())
+    assert qengine.rehear(tmp_path / "r.mp4", "en") == [["Hello", 0.1, 0.4], ["world", 0.4, 0.9]]
+    monkeypatch.setattr(common, "whisper_model", lambda: (_ for _ in ()).throw(RuntimeError("no model")))
+    assert qengine.rehear(tmp_path / "r.mp4", "en") is None
