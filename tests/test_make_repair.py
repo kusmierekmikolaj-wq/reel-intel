@@ -277,8 +277,11 @@ def test_audio_only_keeps_the_picture_and_changes_the_sound(tmp_path, monkeypatc
     work, r = tmp_path / "work", make.new_recipe()
     out = make.render(s, tmp_path / "r.mp4", simple=True, workdir=work, recipe=r)
     video_before = subprocess.run(["ffmpeg", "-v", "error", "-i", str(out), "-map", "0:v", "-c", "copy", "-f", "md5", "-"], capture_output=True, text=True).stdout
+    frames_before = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=nb_frames", "-of", "csv=p=0", str(out)], capture_output=True, text=True).stdout
     r["music_mult"] = 0.3
     make.render(s, out, simple=True, workdir=work, recipe=r, audio_only=True)
+    frames_after = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=nb_frames", "-of", "csv=p=0", str(out)], capture_output=True, text=True).stdout
+    assert frames_before == frames_after != ""                                            # not a frame of the picture is lost at the end
     video_after = subprocess.run(["ffmpeg", "-v", "error", "-i", str(out), "-map", "0:v", "-c", "copy", "-f", "md5", "-"], capture_output=True, text=True).stdout
     assert video_before == video_after != ""
     side = json.loads((tmp_path / "r.qa.json").read_text(encoding="utf-8"))

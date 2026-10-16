@@ -24,7 +24,7 @@ With the Remotion version every reel has a small robot whose face is a screen (t
 - **Loudness:** the finished mix is mastered to the loudness of the reference account (-14.3 LUFS, true peak under -1 dBTP) unless the script says `"master": false`; `"loudness": -16` sets another target.
 - **Reel check and repair** (every `render`, and `reel-intel make qa rolka.mp4`): the voice, the sound, the music, the picture, the captions and the file are checked against a register of known faults; what can be repaired (a sentence
   recorded again, slowed down, cut harder, the music lowered, the loudness set) is repaired and checked again, up to 3 rounds (`--rounds N`, `--no-check`, `--quick`). The result is a verdict (**gotowe**, **z uwagami**, **niegotowe**), the
-  report `rolka_kontrola.md` and the same summary in `rolka.qa.json`. Everything about it, including what it cannot judge: [QA.md](QA.md).
+  report `rolka_kontrola.md` and the same summary in `rolka.qa.json`. `make render` exits with the verdict (0 gotowe, 10 z uwagami, 1 niegotowe, 2 the check could not run), so a script that publishes only on 0 or 10 can rely on it. Everything about it, including what it cannot judge: [QA.md](QA.md).
 
 ## What it uses
 

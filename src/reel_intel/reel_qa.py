@@ -5,6 +5,7 @@ pure functions of numbers, a repair loop, a verdict); this file is the command l
                                           writes rolka_kontrola.md. Exit code 0 gotowe, 10 z uwagami, 1 niegotowe, 2 the check could not run.
         --quick                           leave out the slow checks (the sound-event model, the OCR, the recogniser)
   reel-intel make qa --selftest           puts known faults into synthetic reels: every one must be found, a clean reel must pass (about a minute)
+  reel-intel make qa --selftest --real DIR   the same faults put into clean excerpts of real speech (DIR: data folders with audio.wav + transcript.json)
   reel-intel make calibrate DIR... [--reels DIR...]
                                           measures real recordings and writes thresholds to quality/qa_profile.json
   reel-intel make note rolka.mp4 13.2 oddech "after scene 1"
@@ -53,6 +54,13 @@ def cmd_qa(args):
     quick = "--quick" in args
     files = [a for a in args if not a.startswith("--")]
     if "--selftest" in args:
+        if "--real" in args:                                                   # the same faults put into real speech: --real DIR (data folders with audio.wav + transcript.json)
+            from .quality import matrix
+            i = args.index("--real")
+            res = matrix.run_real(args[i + 1] if i + 1 < len(args) else ".", log=print)
+            print(f"{res['found']}/{res['faults']} faults found in real speech" + (f" ({res['score'] * 100:.0f}%)" if res["score"] is not None else ""))
+            print(", ".join(f"{k}: {v}" for k, v in res["by_kind"].items()))
+            return 0 if res["score"] and res["score"] >= 0.85 else 1
         caught, total = selftest()
         return 0 if caught == total else 1
     if not files:

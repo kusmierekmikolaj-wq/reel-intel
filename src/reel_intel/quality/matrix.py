@@ -310,3 +310,205 @@ def selftest(log=print):
     res = run_matrix(log=log)
     log(format_matrix(res))
     return res["caught"] + res["clean_ok"], res["faults"] + res["clean"], res
+
+
+# ---------------------------------------------------------------- the same faults in REAL speech
+# A synthetic reel proves that a detector finds the fault it was written for. These cases put faults into clean excerpts of real human speech (the data folders of
+# reel-intel: audio.wav + transcript.json, sentences with word times; every sentence is a scene). A real excerpt has findings of its own (a fast talker, applause,
+# a clipped recording), so a fault counts as FOUND only when the number of findings with its code goes UP against the same excerpt without the fault.
+def real_excerpts(root, per_talk=2, seconds=25.0, first_s=60.0, step_s=240.0):
+    """[(name, x float32 at SR, side)]: clean excerpts of real speech cut at sentence boundaries, from every folder under `root` that has audio.wav and transcript.json"""
+    import json
+    from pathlib import Path
+    from .calibrate import decode
+    out = []
+    for d in sorted(p for p in Path(root).iterdir() if p.is_dir()):
+        if not (d / "audio.wav").is_file() or not (d / "transcript.json").is_file():
+            continue
+        x, sr = decode(d / "audio.wav", SR)
+        if x is None:
+            continue
+        segs = [s for s in json.loads((d / "transcript.json").read_text(encoding="utf-8")).get("segments", []) if s.get("words") and s["end"] - s["start"] > 1.2]
+        n, t = 0, first_s
+        while n < per_talk:
+            grp = [s for s in segs if s["start"] >= t]
+            if not grp:
+                break
+            sel, a = [], grp[0]["start"]
+            for s in grp:
+                if s["end"] - a > seconds:
+                    break
+                sel.append(s)
+            if len(sel) >= 4:
+                off = max(0.0, a - 0.3)
+                xs = x[int(off * SR):int((sel[-1]["end"] + 0.3) * SR)]
+                scenes = []
+                for s in sel:
+                    ws = [[w["w"].strip(), round(w["s"] - off, 3), round(w["e"] - off, 3)] for w in s["words"]]
+                    scenes.append({"text": " ".join(w[0] for w in ws), "start": round(s["start"] - off, 3), "end": round(s["end"] - off, 3), "words": ws,
+                                   "heard_words": [w[0] for w in ws], "heard": 1.0, "missed": [], "tail": 0.0})
+                out.append((f"{d.name[-6:]}@{int(a)}s", xs.astype("float32"), {"scenes": scenes, "total": len(xs) / SR}))
+                n += 1
+            t = (sel[-1]["end"] if sel else t) + step_s
+    return out
+
+
+def _shift_times(side, t, dt):
+    for s in side["scenes"]:
+        if s["start"] >= t:
+            s["start"] += dt
+        if s["end"] >= t:
+            s["end"] += dt
+        for w in s["words"]:
+            if w[1] >= t:
+                w[1] += dt
+            if w[2] >= t:
+                w[2] += dt
+    side["total"] = side.get("total", 0.0) + dt
+
+
+def _splice(x, side, t, seg):
+    """`seg` put into the sound at time t; everything after it moves later"""
+    import copy
+    i = int(t * SR)
+    side = copy.deepcopy(side)
+    _shift_times(side, t, len(seg) / SR)
+    return np.concatenate([x[:i], seg.astype("float32"), x[i:]]), side
+
+
+def _replace(x, side, a, b, y):
+    """the sound between a and b replaced by `y` (another length); later times move"""
+    import copy
+    side = copy.deepcopy(side)
+    ia, ib = int(a * SR), int(b * SR)
+    _shift_times(side, b, len(y) / SR - (b - a))
+    return np.concatenate([x[:ia], y.astype("float32"), x[ib:]]), side
+
+
+def _resample(seg, factor):
+    """the segment played `factor` times faster (shorter) or slower (longer, factor < 1), pitch following the speed"""
+    n = max(8, int(len(seg) / factor))
+    return np.interp(np.linspace(0, len(seg) - 1, n), np.arange(len(seg)), seg).astype("float32")
+
+
+def _speech_rms_db(x, side, k):
+    s = side["scenes"][k]
+    seg = x[int(s["words"][0][1] * SR):int(s["words"][-1][2] * SR)]
+    return float(20 * np.log10(np.sqrt(np.mean(seg ** 2)) + 1e-9))
+
+
+def real_cases(root, per_talk=2):
+    """[(name, expected code, findings function)] for the faults that can be told apart from what real speech has anyway; each function returns the findings
+    whose code is more frequent with the fault than without it. Left out on purpose: hiss under the voice (VOICE_HISS listens to the quiet stretch after each
+    last word, and continuous speech has none), loudness and clipping (a real recording has its own)."""
+    from collections import Counter
+    prof = _profile.load()
+    skip = ("check_ears", "check_drift", "check_engine_fallback", "check_render_fallback", "check_loudness", "check_true_peak", "check_gaps", "check_voice_cut")
+    cases = []
+
+    def findings(x, side, voice=None):
+        ctx = Ctx(side=side, final=x, sr=SR, voice=x if voice is None else voice, profile=prof)
+        out = []
+        for m in (speech, audio, mix):
+            for det in m.DETECTORS:
+                if det.__name__ in skip:
+                    continue
+                try:
+                    out += det(ctx)
+                except Exception:
+                    continue
+        return out
+
+    def more(clean, injected):
+        a = Counter(f.code for f in clean if f.sev in ("ERROR", "WARN"))
+        b = Counter(f.code for f in injected if f.sev in ("ERROR", "WARN"))
+        return [f for f in injected if f.sev in ("ERROR", "WARN") and b[f.code] > a[f.code]]
+
+    def breath_after(x, side, k=1):
+        t = side["scenes"][k]["words"][-1][2] + 0.05
+        noise = (np.random.default_rng(3).standard_normal(int(0.3 * SR)) * 10 ** (max(_speech_rms_db(x, side, k) - 26.0, -42.0) / 20)).astype("float32")      # a breath louder than -42 dBFS: below the floor of the detector it is not audible
+        x2, s2 = _splice(x, side, t, noise)
+        s2["scenes"][k]["end"] = t + 0.3 + 0.1
+        return x2, s2, None
+
+    def breathy_tail(x, side, k=1):
+        t = side["scenes"][k]["words"][-1][2] + 0.05
+        tail = (np.random.default_rng(4).standard_normal(int(0.45 * SR)) * 10 ** (max(_speech_rms_db(x, side, k) - 34.0, -46.0) / 20)).astype("float32")
+        x2, s2 = _splice(x, side, t, tail)
+        s2["scenes"][k]["end"] = t + 0.45 + 0.05
+        return x2, s2, None
+
+    def click(x, side):
+        f, v, _m = mix.inject("click", x, x, None, SR, i=int(side["scenes"][1]["words"][2][2] * SR))
+        return f, side, v
+
+    def dropout(x, side):
+        f, _v, _m = mix.inject("dropout", x, x, None, SR, t=side["scenes"][2]["words"][1][1])
+        return f, side, x                                                      # the hole is in the mix; the dry voice kept speaking there: that is what makes it a dropout
+
+    def level_jump(x, side, k=2):
+        x2 = x.copy()
+        s = side["scenes"][k]
+        x2[int(s["start"] * SR):int(s["end"] * SR)] *= 10 ** (-12 / 20)
+        return x2, side, None
+
+    def fast(x, side, k=2):
+        s = side["scenes"][k]
+        a, b = s["words"][0][1], s["words"][-1][2]
+        x2, s2 = _replace(x, side, a, b, _resample(x[int(a * SR):int(b * SR)], 1.7))
+        for w in s2["scenes"][k]["words"]:
+            w[1], w[2] = a + (w[1] - a) / 1.7, a + (w[2] - a) / 1.7
+        s2["scenes"][k]["end"] = a + (b - a) / 1.7 + (s["end"] - b)
+        return x2, s2, None
+
+    def drone(x, side, k=2):
+        a, b = side["scenes"][k]["words"][-1][1], side["scenes"][k]["words"][-1][2]
+        f = min(0.4, (b - a) / 1.8)
+        x2, s2 = _replace(x, side, a, b, _resample(x[int(a * SR):int(b * SR)], f))
+        s2["scenes"][k]["words"][-1][2] = a + (b - a) / f
+        s2["scenes"][k]["end"] = max(s2["scenes"][k]["end"], a + (b - a) / f + 0.05)
+        return x2, s2, None
+
+    def spoken(kind):
+        def build(x, side):
+            s2, v2 = speech.inject(kind, side, x, SR, scene=3, word=2)
+            return v2, s2, None
+        return build
+    kinds = [("breath after a sentence", "VOICE_BREATH", breath_after), ("breathy tail", "VOICE_BREATH", breathy_tail),
+             ("click", "VOICE_NOISE", click), ("dropout inside speech", "MIX_DROPOUT", dropout), ("voice level -12 dB in one scene", "VOICE_LEVEL", level_jump),
+             ("a sentence 1.7 times faster", "VOICE_FAST", fast), ("last vowel dragged on", "VOICE_DRONE", drone), ("pause inside a sentence", "VOICE_PAUSE_INNER", spoken("pause_inner")),
+             ("pitch jump", "VOICE_PITCH_JUMP", spoken("pitch_jump")), ("word said as another", "VOICE_SUB", spoken("sub")), ("word skipped", "VOICE_DEL", spoken("del")),
+             ("word repeated", "VOICE_INS", spoken("ins_repeat")), ("words invented", "VOICE_INS", spoken("ins_hallucination"))]
+    for name, x, side in real_excerpts(root, per_talk):
+        base = {}
+
+        def clean(x=x, side=side, base=base):
+            if "f" not in base:
+                base["f"] = findings(x, side)
+            return base["f"]
+        for label, expect, build in kinds:
+            def fn(build=build, x=x, side=side, clean=clean):
+                x2, s2, voice = build(x, side)
+                return more(clean(), findings(x2, s2, voice))
+            cases.append((f"real {name}: {label}", expect, fn))
+    return cases
+
+
+def run_real(root, per_talk=2, log=None):
+    """the real-speech matrix: {cases, found, faults, score, by_kind}. A case that crashes is a miss, not an exception."""
+    rows = []
+    for name, expect, fn in real_cases(root, per_talk):
+        try:
+            got = sorted(codes(fn()))
+        except Exception as e:
+            rows.append({"name": name, "expect": expect, "ok": False, "got": [f"CRASH {type(e).__name__}: {e}"]})
+            continue
+        ok = expect in got
+        rows.append({"name": name, "expect": expect, "ok": ok, "got": got})
+        if log:
+            log(f"{'ok    ' if ok else 'MISSED'} {name} -> {expect}" + ("" if ok else f"   new findings: {got}"))
+    found = sum(1 for r in rows if r["ok"])
+    by = {}
+    for r in rows:
+        by.setdefault(r["name"].split(": ", 1)[1], []).append(r["ok"])
+    return {"cases": rows, "found": found, "faults": len(rows), "score": found / len(rows) if rows else None, "by_kind": {k: f"{sum(v)}/{len(v)}" for k, v in by.items()}}

@@ -1036,9 +1036,10 @@ def _write_sidecar(out, side):
 
 
 def mux_audio(video_mp4, wav, out_mp4):
-    """the picture of an mp4 kept as it is (no new render), with another sound track: how a repair that only changes the sound is applied in seconds"""
+    """the picture of an mp4 kept as it is (no new render), with another sound track: how a repair that only changes the sound is applied in seconds. No `-shortest`:
+    it cut two frames off the end of the picture when the sound was a few milliseconds shorter than the video (the sound and the picture of a render differ by 3 ms)."""
     r = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(video_mp4), "-i", str(wav), "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac",
-                        "-b:a", "192k", "-ac", "2", "-ar", "48000", "-movflags", "+faststart", "-shortest", str(out_mp4)], capture_output=True, text=True)
+                        "-b:a", "192k", "-ac", "2", "-ar", "48000", "-movflags", "+faststart", str(out_mp4)], capture_output=True, text=True)
     return r.returncode == 0 and Path(out_mp4).exists()
 
 
