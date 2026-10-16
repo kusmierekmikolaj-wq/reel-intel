@@ -184,6 +184,7 @@ def run_loop(check, apply, rebuild=None, scenes_of=None, max_rounds=3, snapshot=
             stopped = "manual" if manual else "nothing to repair"
             break
         before = score(findings)
+        before_codes = sorted({f.code for f in blocking(findings)})
         snap = snapshot() if snapshot else None
         done = []
         for a in p.actions:
@@ -196,7 +197,7 @@ def run_loop(check, apply, rebuild=None, scenes_of=None, max_rounds=3, snapshot=
             for code in a.codes:
                 tried.setdefault((code, a.scene if a.kind in PER_SCENE else None), []).append(a.kind)
         if not any(d["ok"] for d in done):
-            history.append({"round": rnd, "before": before, "actions": done, "after": before, "restored": False})
+            history.append({"round": rnd, "before": before, "before_codes": before_codes, "actions": done, "after": before, "after_codes": before_codes, "restored": False})
             stopped = "no repair worked"
             rounds = rnd
             break
@@ -207,7 +208,8 @@ def run_loop(check, apply, rebuild=None, scenes_of=None, max_rounds=3, snapshot=
                 log(f"rebuild failed: {e}")
                 if restore and snap is not None:
                     restore(snap)
-                history.append({"round": rnd, "before": before, "actions": done, "after": before, "restored": True, "error": str(e)})
+                history.append({"round": rnd, "before": before, "before_codes": before_codes, "actions": done, "after": before, "after_codes": before_codes, "restored": True,
+                                "error": str(e)})
                 stopped = "rebuild failed"
                 rounds = rnd
                 break
@@ -220,7 +222,8 @@ def run_loop(check, apply, rebuild=None, scenes_of=None, max_rounds=3, snapshot=
             log(f"round {rnd} made it worse ({before} -> {after}): undone")
         else:
             findings = new
-        history.append({"round": rnd, "before": before, "actions": done, "after": after, "restored": restored})
+        history.append({"round": rnd, "before": before, "before_codes": before_codes, "actions": done, "after": after, "after_codes": sorted({f.code for f in blocking(new)}),
+                        "restored": restored})
         rounds = rnd
         if restored:
             stopped = "worse, undone"

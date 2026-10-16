@@ -596,3 +596,11 @@ def test_rehear_returns_the_words_of_the_finished_file_or_none(tmp_path, monkeyp
     assert qengine.rehear(tmp_path / "r.mp4", "en") == [["Hello", 0.1, 0.4], ["world", 0.4, 0.9]]
     monkeypatch.setattr(common, "whisper_model", lambda: (_ for _ in ()).throw(RuntimeError("no model")))
     assert qengine.rehear(tmp_path / "r.mp4", "en") is None
+
+
+def test_the_master_keeps_half_a_dB_of_room_under_the_true_peak_limit_for_the_encoder(tmp_path):
+    voice = tmp_path / "voice.wav"
+    music.write_wav(voice, _speechy(db=-31.0))
+    meta = {}
+    make.final_audio({"music": "off"}, voice, 6.0, tmp_path, [], make.new_recipe(), meta)
+    assert meta["master"]["ceiling_db"] == -1.5 and meta["master"]["true_peak_db"] <= -1.45

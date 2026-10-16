@@ -305,3 +305,13 @@ def test_console_text_hides_noise_and_shows_the_verdict():
 def test_label_falls_back_to_the_registry_and_then_the_code():
     assert verdict.label("VOICE_CUT") == "ucięte ostatnie słowo"
     assert verdict.label("NO_SUCH_CODE") == "NO_SUCH_CODE"
+
+
+def test_the_history_names_the_codes_before_and_after_each_round():
+    w = World([("VOICE_CUT", 2, "ERROR"), ("LOUDNESS", None, "WARN")], {("retake_scene", 2): {"VOICE_CUT"}})
+    r = w.run(max_rounds=1)
+    h = r.history[0]
+    assert h["before_codes"] == ["LOUDNESS", "VOICE_CUT"] and h["after_codes"] == ["LOUDNESS"] and h["restored"] is False
+    s = verdict.summarize(r.findings, r.history)
+    assert s["rounds"][0]["before_codes"] == ["LOUDNESS", "VOICE_CUT"] and s["rounds"][0]["after_codes"] == ["LOUDNESS"]
+    assert "[LOUDNESS, VOICE_CUT]" in verdict.report_pl(r.findings, r.history) and "['LOUDNESS']" in verdict.format_console(r.findings, r.history)

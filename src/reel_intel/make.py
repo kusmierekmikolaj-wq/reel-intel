@@ -981,7 +981,9 @@ def final_audio(script, voice, total, tmp, scenes=None, recipe=None, meta=None):
         prof = qprofile.load()
         target = float(script.get("loudness") or prof["loudness"]["target_lufs"])
         try:
-            info = master_wav(mixed, tmp / "final.wav", target, float(prof["loudness"].get("true_peak_max", -1.0)))
+            # the limit of the check is -1 dBTP; the encoder to AAC adds a few tenths of a dB to the peaks it is given (a remixed reel went over by 0.03 dB), so the master
+            # keeps half a dB of room under it
+            info = master_wav(mixed, tmp / "final.wav", target, float(prof["loudness"].get("true_peak_max", -1.0)) - 0.5)
         except Exception as e:                                                 # a failed master never blocks the reel: the check will say that it is too quiet
             print(f"master: {e}")
             info = None

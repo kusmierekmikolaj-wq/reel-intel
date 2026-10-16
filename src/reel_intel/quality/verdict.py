@@ -132,8 +132,9 @@ def summarize(findings, history=None, checked=None, notes_report=None):
            "findings": [{"sev": f.sev, "code": f.code, "scene": f.scene, "t": None if f.t is None else round(float(f.t), 2), "msg": f.msg} for f in
                         sorted(findings, key=lambda f: (ORDER.get(f.sev, 3), f.scene or 0, f.t or 0))]}
     if history:
-        out["rounds"] = [{"round": r["round"], "before": r.get("before"), "actions": [{"kind": a["kind"], "scene": a.get("scene"), "ok": a.get("ok")} for a in r["actions"]],
-                          "after": r.get("after")} for r in history]
+        out["rounds"] = [{"round": r["round"], "before": r.get("before"), "before_codes": r.get("before_codes"), "actions": [{"kind": a["kind"], "scene": a.get("scene"), "ok": a.get("ok")}
+                                                                                                                         for a in r["actions"]],
+                          "after": r.get("after"), "after_codes": r.get("after_codes"), "restored": r.get("restored", False)} for r in history]
     if checked:
         out["checked"] = checked
     if notes_report:
@@ -170,7 +171,9 @@ def report_pl(findings, history=None, title="Kontrola rolki", notes_report=None,
         out += ["## Naprawy automatyczne", ""]
         for r in history:
             acts = "; ".join(f"{ACTIONS_PL.get(a['kind'], a['kind'])}" + (f" (scena {a['scene']})" if a.get("scene") else "") + ("" if a.get("ok", True) else " — NIE UDAŁO SIĘ") for a in r["actions"])
-            out.append(f"- runda {r['round']}: {acts or 'brak działań'}; błędów/uwag przed: {r.get('before')}, po: {r.get('after')}")
+            codes = lambda k: (" [" + ", ".join(r[k]) + "]") if r.get(k) else ""
+            out.append(f"- runda {r['round']}: {acts or 'brak działań'}; błędów/uwag przed: {r.get('before')}{codes('before_codes')}, po: {r.get('after')}{codes('after_codes')}"
+                       + (" — wynik był gorszy, runda cofnięta" if r.get("restored") else ""))
         out.append("")
     info = [f for f in findings if f.sev == "INFO"]
     skipped = [f for f in info if f.code in NOT_CHECKED]
@@ -198,7 +201,7 @@ def format_console(findings, history=None):
     if history:
         for r in history:
             lines.append(f"naprawa, runda {r['round']}: " + "; ".join(f"{a['kind']}" + (f"#{a['scene']}" if a.get("scene") else "") + ("" if a.get("ok", True) else " (nie udało się)") for a in r["actions"]) +
-                         f" -> {r.get('after')}")
+                         f" -> {r.get('after')}" + (f" {r['after_codes']}" if r.get("after_codes") else "") + (" (gorzej: cofnięto)" if r.get("restored") else ""))
     v = decide(findings)
     e = sum(1 for f in findings if f.sev == "ERROR")
     w = sum(1 for f in findings if f.sev == "WARN")
