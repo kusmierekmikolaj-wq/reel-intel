@@ -190,7 +190,7 @@ def chatterbox_ready(script):
 def chatterbox_batch(script, lines, tmp):
     """all sentences in ONE run of the Chatterbox environment (the model loads once), `takes` recordings of each; the best heard one becomes
     tmp/s<i>.wav. Returns True when every file exists"""
-    takes = int(script.get("takes", 3))
+    takes = int(script.get("takes", 4))
     spoken = [spoken_form(text, script["lang"], script.get("say")) for text in lines]
     spec = {"lang": script["lang"], "ref": str(voice_sample(script) or ""), "exaggeration": script.get("exaggeration", 0.85), "cfg": script.get("cfg", 0.3), "takes": takes,
             "jobs": [{"text": sp[0], "out": str(Path(tmp) / f"s{i}.wav")} for i, sp in enumerate(spoken)]}
@@ -215,7 +215,8 @@ def chatterbox_batch(script, lines, tmp):
     return all((Path(tmp) / f"s{i}.wav").exists() for i in range(len(lines)))
 
 
-PACE_MAX = 8.0                                                                  # syllables a second; natural Polish is about 4-7.5
+LAST_WORD_MAX = 1.1                                                             # seconds: a longer last word is a dragged vowel
+PACE_MAX = 6.8                                                                  # syllables a second: real speakers in our data stay between 2.9 and 6.5
 
 
 def speech_rate(wav, lang, text, toks):
@@ -223,6 +224,8 @@ def speech_rate(wav, lang, text, toks):
     from . import pronounce
     al, r, _m, _h = align_words(wav, lang, toks)
     if not al:
+        return None, None
+    if al[-1][1] - al[-1][0] > LAST_WORD_MAX:                                 # a dragged vowel is not a slower sentence
         return None, None
     return pronounce.syllable_count(text) / max(al[-1][1] - al[0][0], 0.2), r or 0.0
 
@@ -480,19 +483,46 @@ def word_hits(disp, owner, matched, heard_norms):
     return [any(matched[k] for k in range(len(owner)) if owner[k] == i) or norm(w) in heard_norms for i, w in enumerate(disp)]
 
 
+def ears_score(paths):
+    """{path: {"breath": worst breath-like score, ...}} from the sound-event model, or {} when it is not installed (it lives in the Chatterbox environment)"""
+    if not TTS_PYTHON.is_file() or not paths:
+        return {}
+    with tempfile.TemporaryDirectory(prefix="ears_") as d:
+        lst, out = Path(d) / "list.json", Path(d) / "out.json"
+        lst.write_text(json.dumps([str(p) for p in paths]), encoding="utf-8")
+        try:
+            subprocess.run([str(TTS_PYTHON), str(Path(__file__).with_name("ears.py")), "--score", str(lst), str(out)], capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", timeout=900, env={**os.environ, "PYTHONIOENCODING": "utf-8"})
+            return json.loads(out.read_text(encoding="utf-8")) if out.exists() else {}
+        except Exception as e:
+            print(f"ears: {e}")
+            return {}
+
+
 def pick_take(takes, lang, toks):
     """of several recordings of one sentence keep the one whose words are heard best (a mispronounced word is heard as another word)"""
-    best, best_r = None, -1.0
+    from . import pronounce
+    rated = []
     for p in takes:
         if not Path(p).exists():
             continue
-        _al, r, _m, _h = align_words(p, lang, toks)
+        al, r, _m, _h = align_words(p, lang, toks)
         r = r if r is not None else 0.0
-        if r > best_r:
-            best, best_r = p, r
-        if r >= 0.999:
-            break
-    return best
+        if al:
+            span = max(al[-1][1] - al[0][0], 0.3)
+            rate = pronounce.syllable_count(" ".join(toks)) / span
+            if al[-1][1] - al[-1][0] > LAST_WORD_MAX or rate < 3.0 or rate > 9.0:   # a vowel dragged on, or a rushed or crawling take: a different fault each
+                r -= 0.5
+        rated.append((r, p))
+    if not rated:
+        return None
+    top = max(r for r, _p in rated)
+    good = [p for r, p in rated if r >= top - 0.01]                           # the takes whose words are heard as well as the best one
+    if len(good) > 1:
+        sc = ears_score(good)                                                  # of those, the one with the least breath in it
+        if sc:
+            return min(good, key=lambda p: (sc.get(str(p), {}).get("breath", 1.0), sc.get(str(p), {}).get("mean", 1.0)))
+    return good[0]
 
 
 def speech_end(path, rel_db=-24.0):
@@ -576,15 +606,27 @@ def timeline(script, tmp):
             hit = word_hits(ws, owner, tmatch, theardset)
             heard = sum(hit) / max(len(ws), 1)
             missed = [w for w, h in zip(ws, hit) if not h]
+        if al and heard >= 0.5:
+            from . import pronounce
+            rate = pronounce.syllable_count(text) / max(al[-1][1] - al[0][0], 0.3)
+            if rate > PACE_MAX:                                                # slower by the exact factor, the word times follow
+                f = max(0.78, 5.8 / rate)
+                slow_wav(wav, f)
+                al = [(a / f, b / f) for a, b in al]
+                dur = _wav_info(wav)[0]
+                print(f"pace: scene {i + 1} was {rate:.1f} syllables a second, slowed to {rate * f:.1f}")
         tail = 0.0
         if al and heard >= 0.5:
             end_words = al[-1][1]
             end_sound = speech_end(wav)                                        # where the voice really stops being speech: a word the recognizer
             end = end_sound if end_sound else end_words                        # missed ("AI") is kept, the breathy tail it counted is not
+            if al[-1][1] - al[-1][0] > LAST_WORD_MAX + 0.1 or end - al[-1][0] > LAST_WORD_MAX + 0.1:       # the last word is dragged out: cut it short
+                end = al[-1][0] + 0.85
+                print(f"voice: scene {i + 1}: the sound after the last word started ran on for {speech_end(wav) - al[-1][0]:.1f} s, cut to 0.85 s")
             tail = max(0.0, dur - end)
             keep = end + 0.1
             if dur - keep > 0.05:                                              # breath, murmur and dead air after the last word: cut it
-                trim_wav(wav, keep, fade=0.08)
+                trim_wav(wav, keep, fade=0.15 if end == al[-1][0] + 0.85 else 0.08)
                 dur = keep
             al[-1] = (al[-1][0], min(max(end, al[-1][0] + 0.05), al[-1][1]) if end < end_words else end)
         c, words = 0, []

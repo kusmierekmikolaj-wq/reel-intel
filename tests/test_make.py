@@ -221,3 +221,15 @@ def test_timeline_with_a_voice_slows_it_and_keeps_the_scene_timing(tmp_path, mon
     scenes, total, audio = make.timeline(s, tmp_path)
     assert audio is not None and abs((scenes[0]["end"] - scenes[0]["start"]) - 1.0 / 0.9) < 0.08
     assert total > scenes[-1]["end"]
+
+
+def test_ears_interpretation_flags_breaths_between_and_inside_scenes():
+    from reel_intel import reel_qa
+    scenes = [{"words": [("a", 0.5, 1.0)], "end": 2.0}, {"words": [("b", 3.0, 3.5)], "end": 4.0}]
+    ears = {"window": 1.0, "hop": 0.5, "windows": [
+        {"t": 0.0, "labels": [["Speech", 0.9], ["Music", 0.4], ["Gasp", 0.03]]},                    # a little gasp score in speech: ignored
+        {"t": 1.0, "labels": [["Music", 0.5], ["Gasp", 0.22], ["Speech", 0.1]]},                      # a clear gasp at the end of scene 1
+        {"t": 2.2, "labels": [["Music", 0.6], ["Breathing", 0.09]]}]}                                  # breathing between the scenes
+    res = reel_qa.hear(ears, scenes)
+    assert len(res) == 2 and "scene 1" in res[0][2] and "Gasp" in res[0][2] and "between scenes" in res[1][2]
+    assert reel_qa.hear({"window": 1.0, "hop": 0.5, "windows": [{"t": 0.0, "labels": [["Speech", 0.9], ["Music", 0.5]]}]}, scenes) == []

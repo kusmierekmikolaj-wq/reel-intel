@@ -121,6 +121,75 @@ def breaths(scenes, voice_x, sr):
     return out
 
 
+# Speaking rate of real speakers in our own data (4 TED talks, 10 AI-account reels, 20 marketing reels, 8 NASA videos): 2.9-6.5 syllables a second
+# of speech, median about 5. Outside 3.2-6.8 a voice sounds rushed or dragging.
+RATE_FAST = 6.8
+RATE_SLOW = 3.2
+RATE_TARGET = 5.8
+
+
+def syllable_count(text):
+    return len(re.findall(r"[aeiouyąęó]+", text.lower()))
+
+
+def nuclei(x, sr):
+    """times (s) of syllable nuclei in the voice, counted from the sound itself: peaks of the energy in the 300-3000 Hz band that stand out from their
+    surroundings, at least 80 ms apart (the method of de Jong & Wempe, simplified). Independent of speech recognition."""
+    import numpy as np
+    fl, hop = int(sr * 0.025), int(sr * 0.010)
+    if len(x) < fl * 4:
+        return []
+    win = np.hanning(fl)
+    f = np.fft.rfftfreq(fl, 1 / sr)
+    band = (f >= 300) & (f <= 3000)
+    e = np.array([np.sum(np.abs(np.fft.rfft(x[i:i + fl] * win))[band] ** 2) for i in range(0, len(x) - fl, hop)]) + 1e-12
+    db = 10 * np.log10(e)
+    db = np.convolve(db, np.ones(5) / 5, mode="same")                       # 50 ms smoothing: one bump per syllable
+    floor = np.percentile(db, 90) - 28
+    peaks, last = [], -99
+    for i in range(3, len(db) - 3):
+        if db[i] > floor and db[i] >= db[i - 1] and db[i] > db[i + 1]:
+            dip = min(db[max(0, i - 12):i].min(), db[i + 1:i + 13].min()) if i + 13 < len(db) else db[max(0, i - 12):i].min()
+            if db[i] - dip >= 2.5 and i - last >= 8:                          # rises at least 2.5 dB above the valley next to it
+                peaks.append(i * hop / sr)
+                last = i
+    return peaks
+
+
+def rate_in(peaks, a, b):
+    """syllables a second between a and b seconds"""
+    return sum(1 for t in peaks if a <= t <= b) / max(b - a, 0.3)
+
+
+def pace(scenes, voice_x, sr, ref=None):
+    """the speaking rate heard in the sound, per scene and in short stretches, against what real speakers do"""
+    out = []
+    peaks = nuclei(voice_x, sr)
+    rates = []
+    for i, s in enumerate(scenes, 1):
+        if not s["words"]:
+            continue
+        a, b = s["words"][0][1], s["words"][-1][2]
+        heard = rate_in(peaks, a, b)
+        text = syllable_count(s["text"]) / max(b - a, 0.3)
+        rates.append(max(heard, text))
+        worst = max(heard, text)
+        if worst > RATE_FAST:
+            out.append(("WARN", "VOICE_FAST", f"scene {i}: {heard:.1f} syllables a second in the sound ({text:.1f} by the words); real speakers stay under {RATE_FAST}"))
+        elif worst < RATE_SLOW and b - a > 1.0:
+            out.append(("WARN", "VOICE_SLOW", f"scene {i}: {heard:.1f} syllables a second in the sound ({text:.1f} by the words): dragging"))
+        for t0 in [a + k * 0.5 for k in range(int(max(0, (b - a - 1.0)) / 0.5) + 1)]:    # a rushed phrase inside a sentence of normal pace
+            r = rate_in(peaks, t0, t0 + 1.0)
+            if r > 9.0 and worst <= RATE_FAST:
+                out.append(("WARN", "VOICE_BURST", f"scene {i} at {t0:.1f} s: a rushed stretch, {r:.0f} syllables in one second"))
+                break
+    if rates:
+        out.append(("INFO", "PACE", f"speaking rate {sum(rates) / len(rates):.1f} syllables a second on average (real speakers in our data: 2.9-6.5, median 5)"))
+    if ref:
+        out.append(("INFO", "PACE_REF", ref))
+    return out
+
+
 def voice(scenes, voice_x, sr):
     """checks on the voice track alone"""
     out = []
@@ -131,8 +200,6 @@ def voice(scenes, voice_x, sr):
         a, b = s["words"][0][1], s["words"][-1][2]
         syl = len(re.findall(r"[aeiouyąęó]+", s["text"].lower()))              # syllables, not words: Polish has many one-letter words
         rate = syl / max(b - a, 0.2)
-        if rate < 2.5 or rate > 8.5:
-            out.append(("WARN", "VOICE_PACE", f"scene {i}: {rate:.1f} syllables a second (natural speech is about 4-7.5)"))
         h = s.get("heard")
         if h is not None and h < 0.8:
             miss = ", ".join(s.get("missed") or [])
@@ -140,6 +207,9 @@ def voice(scenes, voice_x, sr):
                         + (f"; not heard as written: {miss} (fix the spelling for the voice in \"say\", e.g. \"say\": {{\"{(s.get('missed') or ['word'])[0]}\": \"how it sounds\"}})" if miss else "")))
         if s.get("tail", 0) > 0.5:
             out.append(("INFO", "VOICE_TAIL", f"scene {i}: {s['tail']:.2f} s of silence after the last word in the voice file (trimmed in the render)"))
+        w = s["words"]
+        if w[-1][2] - w[-1][1] > 1.2:
+            out.append(("WARN", "VOICE_DRONE", f"scene {i}: the last word '{w[-1][0]}' lasts {w[-1][2] - w[-1][1]:.1f} s: a vowel dragged on"))
         lv = _db(voice_x[int(a * sr):int(b * sr)])
         levels.append((i, lv))
         end_part = voice_x[max(0, int(s["end"] * sr) - int(0.04 * sr)):int(s["end"] * sr)]
@@ -210,10 +280,27 @@ def media(mp4):
     return out
 
 
+def hear(ears_json, scenes):
+    """what the sound-event model heard (windows from ears.py): breaths and body sounds in the reel, with the time and what is around them"""
+    from .ears import BREATH_LABELS, breath_score
+    out, seen = [], set()
+    for w in ears_json["windows"]:
+        p, name = breath_score(w["labels"], BREATH_LABELS)
+        if p >= 0.07:
+            t0, t1 = w["t"], w["t"] + ears_json["window"]
+            key = (name, int(t0 // 2))
+            if key in seen:
+                continue
+            seen.add(key)
+            sc = next((i for i, s in enumerate(scenes, 1) if s["words"] and s["words"][0][1] - 0.2 <= (t0 + t1) / 2 <= s["end"] + 0.3), None)
+            out.append(("WARN", "EAR_BREATH", f"{t0:.1f}-{t1:.1f} s" + (f" (scene {sc})" if sc else " (between scenes)") + f": the sound model hears '{name}' ({p:.2f})"))
+    return out
+
+
 def check(sidecar, final, sr, voice_x, mouth_env=None):
     """all the audio checks on samples already in memory"""
     scenes = sidecar["scenes"]
-    res = gaps(final, sr, scenes) + voice(scenes, voice_x, sr) + breaths(scenes, voice_x, sr) + mix(final, sr, voice_x)
+    res = gaps(final, sr, scenes) + voice(scenes, voice_x, sr) + breaths(scenes, voice_x, sr) + pace(scenes, voice_x, sr) + mix(final, sr, voice_x)
     if mouth_env:
         res += mouth(mouth_env, voice_x, sr)
     return res
@@ -229,7 +316,23 @@ def run(mp4):
     vp = mp4.with_name(mp4.stem + "_voice.wav")
     voice_x, vsr = read_wav(vp) if vp.exists() else (final, sr)
     res = check(side, final, sr, voice_x, side.get("mouth"))
+    res += listen(mp4, side["scenes"])
     return media(mp4) + res
+
+
+def listen(mp4, scenes):
+    """the sound-event model on the whole reel; skipped (with an INFO line) when its environment is not installed"""
+    from . import make
+    if not make.TTS_PYTHON.is_file():
+        return [("INFO", "EARS_OFF", "the sound-event model is not installed (the Chatterbox environment has it): breaths are judged by level only")]
+    with tempfile.TemporaryDirectory(prefix="ears_") as d:
+        wav, js = Path(d) / "f.wav", Path(d) / "e.json"
+        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(mp4), "-vn", "-ac", "1", "-ar", "16000", str(wav)], check=True)
+        r = subprocess.run([str(make.TTS_PYTHON), str(Path(__file__).with_name("ears.py")), str(wav), str(js), "1.0", "0.5"], capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", timeout=900)
+        if not js.exists():
+            return [("INFO", "EARS_OFF", "the sound-event model failed to run: " + (r.stderr or "")[-120:])]
+        return hear(json.loads(js.read_text(encoding="utf-8")), scenes)
 
 
 def report(res):
@@ -289,6 +392,14 @@ def selftest():
     x[k:k + int(0.25 * sr)] += (rng.standard_normal(int(0.25 * sr)) * 10 ** (-34 / 20)).astype("float32")      # a breath right after the first sentence
     s["scenes"][0]["end"] = word_end + 0.45
     cases.append(("breath after a sentence", x, s, "VOICE_BREATH"))
+    x, s = build(0.3)
+    sc = s["scenes"][0]
+    sc["words"][-1] = (sc["words"][-1][0], sc["words"][-1][1], sc["words"][-1][1] + 2.6)                  # the last word lasts 2.6 s: a dragged vowel
+    cases.append(("a dragged last vowel", x, s, "VOICE_DRONE"))
+    x, s = build(0.3)
+    for sc in s["scenes"][1:2]:                                                  # the same sentence squeezed into 0.6 s: far too fast
+        sc["words"] = [(w, sc["start"] + (a - sc["start"]) * 0.3, sc["start"] + (b - sc["start"]) * 0.3) for w, a, b in sc["words"]]
+    cases.append(("a sentence spoken too fast", x, s, "VOICE_FAST"))
     x, s = build(0.6)
     k = int(s["scenes"][1]["words"][-1][2] * sr)
     x = x.copy()
