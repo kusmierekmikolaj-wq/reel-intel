@@ -142,7 +142,7 @@ def start_job(text, lang, limit):
     return True, "started"
 
 
-MAKE = {"state": "idle", "log": "", "video": None, "account": None, "text": ""}
+MAKE = {"state": "idle", "log": "", "video": None, "account": None, "text": "", "verdict": None, "report": None}
 SLUG = re.compile(r"^[A-Za-z0-9_.-]{1,60}$")
 
 
@@ -168,7 +168,7 @@ def start_make(account, action, script_text, name, lang):
     with LOCK:
         if MAKE["state"] == "running":
             return False, "a reel is being made"
-        MAKE.update(state="running", log="", video=None, account=account, text="")
+        MAKE.update(state="running", log="", video=None, account=account, text="", verdict=None, report=None)
     rd.mkdir(exist_ok=True)
     if action != "brief":
         path.write_text(script_text, encoding="utf-8")
@@ -176,15 +176,23 @@ def start_make(account, action, script_text, name, lang):
 
     def work():
         try:
-            p = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900,
+            p = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=3600,           # render + check + up to 3 repair rounds
                                env={**os.environ, "REEL_DATA": str(base), "REEL_UI_LANG": lang if lang in ("pl", "en") else "pl"})
             MAKE["log"] = (p.stdout + p.stderr).strip()[-1500:]
-            if action == "render" and p.returncode == 0 and (rd / f"{slug}.mp4").exists():
+            # a render exits with the verdict of its quality check: 0 gotowe, 10 z uwagami, 1 niegotowe (2 and more: it did not run); the file is there in all of the first three
+            made = action == "render" and p.returncode in (0, 10, 1) and (rd / f"{slug}.mp4").exists()
+            if made:
                 MAKE["video"] = f"/rolki/{quote(account)}/{slug}.mp4"
+                try:
+                    MAKE["verdict"] = json.loads((rd / f"{slug}.qa.json").read_text(encoding="utf-8")).get("qa", {}).get("verdict")
+                except Exception:
+                    MAKE["verdict"] = None
+                if (rd / f"{slug}_kontrola.md").exists():
+                    MAKE["report"] = f"/rolki/{quote(account)}/{slug}_kontrola.md"
             if action == "brief" and p.returncode == 0:
                 f = next((base / n for n in ("BRIEF_ROLKI.md", "REEL_BRIEF.md") if (base / n).exists()), None)
                 MAKE["text"] = f.read_text(encoding="utf-8") if f else ""
-            MAKE["state"] = "done" if p.returncode == 0 else "error"
+            MAKE["state"] = "done" if (p.returncode == 0 or made) else "error"
         except Exception as e:
             MAKE["log"] = f"error: {e}"
             MAKE["state"] = "error"
@@ -292,12 +300,12 @@ class Handler(BaseHTTPRequestHandler):
             base = WORK / lid[5:] if lid.startswith("scan:") else LIBRARY / lid
             return self._send(200, (base / "Reele.html").read_bytes(), "text/html; charset=utf-8")
         if self.path == "/api/make/state":
-            return self._send(200, json.dumps({k: MAKE[k] for k in ("state", "log", "video", "text")}, ensure_ascii=False), "application/json")
+            return self._send(200, json.dumps({k: MAKE[k] for k in ("state", "log", "video", "text", "verdict", "report")}, ensure_ascii=False), "application/json")
         if self.path.startswith("/rolki/"):                                       # /rolki/<account>/<file>: only files of a listed account's rolki folder
             parts = self.path.split("?")[0].split("/")
             base = make_base(unquote(parts[2])) if len(parts) == 4 else None
             name = unquote(parts[3]) if len(parts) == 4 else ""
-            types = {".mp4": "video/mp4", ".txt": "text/plain; charset=utf-8", ".json": "application/json"}
+            types = {".mp4": "video/mp4", ".txt": "text/plain; charset=utf-8", ".json": "application/json", ".md": "text/plain; charset=utf-8"}
             ext = Path(name).suffix.lower()
             f = base / "rolki" / name if base and SLUG.match(name) and ext in types else None
             return self._send_file(f, types[ext]) if f and f.is_file() else self._send(404, "not found")

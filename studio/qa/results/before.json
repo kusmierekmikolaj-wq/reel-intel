@@ -1,0 +1,978 @@
+{
+ "tag": "before",
+ "safe": {
+  "x": [
+   90,
+   990
+  ],
+  "y": [
+   270,
+   1480
+  ]
+ },
+ "cases": {
+  "s1c1": {
+   "has_slogan": true,
+   "has_chips": false,
+   "has_mascot": true,
+   "mascot_boxes": {
+    "27": [
+     317,
+     139,
+     772,
+     681
+    ],
+    "60": [
+     316,
+     128,
+     778,
+     672
+    ],
+    "80": [
+     272,
+     123,
+     776,
+     667
+    ]
+   },
+   "blocks": [
+    {
+     "kind": "slogan",
+     "lines": 1,
+     "pitch": null,
+     "box": [
+      291,
+      853,
+      799,
+      951
+     ]
+    },
+    {
+     "kind": "caption",
+     "lines": 1,
+     "pitch": null,
+     "box": [
+      356,
+      1202,
+      696,
+      1264
+     ]
+    }
+   ],
+   "bars": [
+    [
+     90,
+     1690,
+     449,
+     1697
+    ]
+   ],
+   "card": [
+    70,
+    1130,
+    1009,
+    1332
+   ],
+   "violations": [
+    "SAFE_ZONE caption card edge [70, 1130, 1009, 1332] leaves x 90..990 y 270..1480 (the text inside it may still be inside)",
+    "SAFE_ZONE progress bar y 1690..1697 is in the bottom 440 px, where the platform's own buttons and caption are"
+   ]
+  },
+  "s1c5": {
+   "has_slogan": true,
+   "has_chips": false,
+   "has_mascot": true,
+   "mascot_boxes": {
+    "27": [
+     317,
+     139,
+     772,
+     681
+    ],
+    "60": [
+     316,
+     128,
+     778,
+     672
+    ],
+    "80": [
+     272,
+     123,
+     776,
+     667
+    ]
+   },
+   "blocks": [
+    {
+     "kind": "slogan",
+     "lines": 1,
+     "pitch": null,
+     "box": [
+      291,
+      853,
+      799,
+      951
+     ]
+    },
+    {
+     "kind": "caption",
+     "lines": 5,
+     "pitch": 86.8,
+     "box": [
+      139,
+      1203,
+      913,
+      1612
+     ]
+    }
+   ],
+   "bars": [
+    [
+     90,
+     1690,
+     449,
+     1697
+    ]
+   ],
+   "card": [
+    70,
+    1130,
+    1009,
+    1680
+   ],
+   "violations": [
+    "SAFE_ZONE caption text [139, 1203, 913, 1612] leaves x 90..990 y 270..1480",
+    "SAFE_ZONE caption card edge [70, 1130, 1009, 1680] leaves x 90..990 y 270..1480 (the text inside it may still be inside)",
+    "SAFE_ZONE progress bar y 1690..1697 is in the bottom 440 px, where the platform's own buttons and caption are"
+   ]
+  },
+  "s3c1": {
+   "has_slogan": true,
+   "has_chips": false,
+   "has_mascot": true,
+   "mascot_boxes": {
+    "27": [
+     317,
+     139,
+     772,
+     681
+    ],
+    "60": [
+     316,
+     128,
+     778,
+     672
+    ],
+    "80": [
+     272,
+     123,
+     776,
+     667
+    ]
+   },
+   "blocks": [
+    {
+     "kind": "slogan",
+     "lines": 3,
+     "pitch": 161.5,
+     "box": [
+      266,
+      733,
+      823,
+      1141
+     ]
+    },
+    {
+     "kind": "caption",
+     "lines": 1,
+     "pitch": null,
+     "box": [
+      356,
+      1202,
+      696,
+      1264
+     ]
+    }
+   ],
+   "bars": [
+    [
+     90,
+     1690,
+     449,
+     1697
+    ]
+   ],
+   "card": [
+    70,
+    1130,
+    1009,
+    1332
+   ],
+   "violations": [
+    "SAFE_ZONE caption card edge [70, 1130, 1009, 1332] leaves x 90..990 y 270..1480 (the text inside it may still be inside)",
+    "SAFE_ZONE progress bar y 1690..1697 is in the bottom 440 px, where the platform's own buttons and caption are",
+    "TEXT_OVERLAP slogan [266, 733, 823, 1141] and card [70, 1130, 1009, 1332]"
+   ]
+  },
+  "s3c5": {
+   "has_slogan": true,
+   "has_chips": false,
+   "has_mascot": true,
+   "mascot_boxes": {
+    "27": [
+     317,
+     139,
+     772,
+     681
+    ],
+    "60": [
+     316,
+     128,
+     778,
+     672
+    ],
+    "80": [
+     272,
+     123,
+     776,
+     667
+    ]
+   },
+   "blocks": [
+    {
+     "kind": "slogan",
+     "lines": 3,
+     "pitch": 161.5,
+     "box": [
+      266,
+      733,
+      823,
+      1141
+     ]
+    },
+    {
+     "kind": "caption",
+     "lines": 5,
+     "pitch": 86.8,
+     "box": [
+      139,
+      1203,
+      913,
+      1612
+     ]
+    }
+   ],
+   "bars": [
+    [
+     90,
+     1690,
+     449,
+     1697
+    ]
+   ],
+   "card": [
+    70,
+    1130,
+    1009,
+    1680
+   ],
+   "violations": [
+    "SAFE_ZONE caption text [139, 1203, 913, 1612] leaves x 90..990 y 270..1480",
+    "SAFE_ZONE caption card edge [70, 1130, 1009, 1680] leaves x 90..990 y 270..1480 (the text inside it may still be inside)",
+    "SAFE_ZONE progress bar y 1690..1697 is in the bottom 440 px, where the platform's own buttons and caption are",
+    "TEXT_OVERLAP slogan [266, 733, 823, 1141] and card [70, 1130, 1009, 1680]"
+   ]
+  },
+  "s4c1": {
+   "has_slogan": true,
+   "has_chips": false,
+   "has_mascot": true,
+   "mascot_boxes": {
+    "27": [
+     317,
+     139,
+     772,
+     681
+    ],
+    "60": [
+     316,
+     128,
+     778,
+     672
+    ],
+    "80": [
+     272,
+     123,
+     776,
+     667
+    ]
+   },
+   "blocks": [
+    {
+     "kind": "slogan",
+     "lines": 5,
+     "pitch": 147.2,
+     "box": [
+      110,
+      732,
+      975,
+      1402
+     ]
+    }
+   ],
+   "bars": [
+    [
+     90,
+     1690,
+     449,
+     1697
+    ]
+   ],
+   "card": [
+    72,
+    1130,
+    1007,
+    1230
+   ],
+   "violations": [
+    "SAFE_ZONE caption card edge [72, 1130, 1007, 1230] leaves x 90..990 y 270..1480 (the text inside it may still be inside)",
+    "SAFE_ZONE progress bar y 1690..1697 is in the bottom 440 px, where the platform's own buttons and caption are",
+    "TEXT_OVERLAP slogan [110, 732, 975, 1402] and card [72, 1130, 1007, 1230]"
+   ]
+  },
+  "s4c5": {
+   "has_slogan": true,
+   "has_chips": false,
+   "has_mascot": true,
+   "mascot_boxes": {
+    "27": [
+     317,
+     139,
+     772,
+     681
+    ],
+    "60": [
+     316,
+     128,
+     778,
+     672
+    ],
+    "80": [
+     272,
+     123,
+     776,
+     667
+    ]
+   },
+   "blocks": [
+    {
+     "kind": "slogan",
+     "lines": 3,
+     "pitch": 140.5,
+     "box": [
+      110,
+      732,
+      975,
+      1097
+     ]
+    },
+    {
+     "kind": "caption",
+     "lines": 5,
+     "pitch": 86.8,
+     "box": [
+      139,
+      1203,
+      913,
+      1612
+     ]
+    }
+   ],
+   "bars": [
+    [
+     90,
+     1690,
+     449,
+     1697
+    ]
+   ],
+   "card": [
+    70,
+    1130,
+    1009,
+    1680
+   ],
+   "violations": [
+    "SAFE_ZONE caption text [139, 1203, 913, 1612] leaves x 90..990 y 270..1480",
+    "SAFE_ZONE caption card edge [70, 1130, 1009, 1680] leaves x 90..990 y 270..1480 (the text inside it may still be inside)",
+    "SAFE_ZONE progress bar y 1690..1697 is in the bottom 440 px, where the platform's own buttons and caption are"
+   ]
+  },
+  "s3c3chips": {
+   "has_slogan": true,
+   "has_chips": true,
+   "has_mascot": true,
+   "mascot_boxes": {
+    "27": [
+     317,
+     139,
+     772,
+     681
+    ],
+    "60": [
+     316,
+     128,
+     778,
+     672
+    ],
+    "80": [
+     272,
+     123,
+     776,
+     667
+    ]
+   },
+   "blocks": [
+    {
+     "kind": "slogan",
+     "lines": 3,
+     "pitch": 161.5,
+     "box": [
+      266,
+      733,
+      823,
+      1141
+     ]
+    },
+    {
+     "kind": "caption",
+     "lines": 3,
+     "pitch": 87.0,
+     "box": [
+      139,
+      1203,
+      913,
+      1424
+     ]
+    }
+   ],
+   "bars": [
+    [
+     90,
+     1690,
+     449,
+     1697
+    ]
+   ],
+   "card": [
+    70,
+    1130,
+    1009,
+    1506
+   ],
+   "violations": [
+    "SAFE_ZONE caption card edge [70, 1130, 1009, 1506] leaves x 90..990 y 270..1480 (the text inside it may still be inside)",
+    "SAFE_ZONE progress bar y 1690..1697 is in the bottom 440 px, where the platform's own buttons and caption are",
+    "TEXT_OVERLAP slogan [266, 733, 823, 1141] and card [70, 1130, 1009, 1506]"
+   ]
+  },
+  "s4c5chips": {
+   "has_slogan": true,
+   "has_chips": true,
+   "has_mascot": true,
+   "mascot_boxes": {
+    "27": [
+     317,
+     139,
+     772,
+     681
+    ],
+    "60": [
+     316,
+     128,
+     778,
+     672
+    ],
+    "80": [
+     272,
+     123,
+     776,
+     667
+    ]
+   },
+   "blocks": [
+    {
+     "kind": "slogan",
+     "lines": 3,
+     "pitch": 140.5,
+     "box": [
+      110,
+      732,
+      975,
+      1097
+     ]
+    },
+    {
+     "kind": "caption",
+     "lines": 5,
+     "pitch": 86.8,
+     "box": [
+      139,
+      1203,
+      913,
+      1612
+     ]
+    }
+   ],
+   "bars": [
+    [
+     90,
+     1690,
+     449,
+     1697
+    ]
+   ],
+   "card": [
+    70,
+    1130,
+    1009,
+    1680
+   ],
+   "violations": [
+    "SAFE_ZONE caption text [139, 1203, 913, 1612] leaves x 90..990 y 270..1480",
+    "SAFE_ZONE caption card edge [70, 1130, 1009, 1680] leaves x 90..990 y 270..1480 (the text inside it may still be inside)",
+    "SAFE_ZONE progress bar y 1690..1697 is in the bottom 440 px, where the platform's own buttons and caption are"
+   ]
+  },
+  "cta5": {
+   "has_slogan": false,
+   "has_chips": false,
+   "has_mascot": true,
+   "mascot_boxes": {
+    "27": [
+     317,
+     139,
+     772,
+     681
+    ],
+    "60": [
+     316,
+     128,
+     778,
+     672
+    ],
+    "80": [
+     272,
+     123,
+     776,
+     667
+    ]
+   },
+   "blocks": [
+    {
+     "kind": "pulse",
+     "lines": 1,
+     "pitch": null,
+     "box": [
+      480,
+      870,
+      599,
+      989
+     ]
+    },
+    {
+     "kind": "caption",
+     "lines": 5,
+     "pitch": 86.8,
+     "box": [
+      139,
+      1203,
+      913,
+      1612
+     ]
+    }
+   ],
+   "bars": [
+    [
+     90,
+     1690,
+     449,
+     1697
+    ]
+   ],
+   "card": [
+    70,
+    1130,
+    1009,
+    1680
+   ],
+   "violations": [
+    "SAFE_ZONE caption text [139, 1203, 913, 1612] leaves x 90..990 y 270..1480",
+    "SAFE_ZONE caption card edge [70, 1130, 1009, 1680] leaves x 90..990 y 270..1480 (the text inside it may still be inside)",
+    "SAFE_ZONE progress bar y 1690..1697 is in the bottom 440 px, where the platform's own buttons and caption are"
+   ]
+  },
+  "s3c5_nomascot": {
+   "has_slogan": true,
+   "has_chips": false,
+   "has_mascot": false,
+   "blocks": [
+    {
+     "kind": "slogan",
+     "lines": 3,
+     "pitch": 161.5,
+     "box": [
+      266,
+      451,
+      823,
+      873
+     ]
+    },
+    {
+     "kind": "caption",
+     "lines": 5,
+     "pitch": 86.8,
+     "box": [
+      139,
+      1203,
+      913,
+      1612
+     ]
+    }
+   ],
+   "bars": [
+    [
+     90,
+     1690,
+     449,
+     1697
+    ]
+   ],
+   "card": [
+    70,
+    1130,
+    1009,
+    1680
+   ],
+   "violations": [
+    "SAFE_ZONE caption text [139, 1203, 913, 1612] leaves x 90..990 y 270..1480",
+    "SAFE_ZONE caption card edge [70, 1130, 1009, 1680] leaves x 90..990 y 270..1480 (the text inside it may still be inside)",
+    "SAFE_ZONE progress bar y 1690..1697 is in the bottom 440 px, where the platform's own buttons and caption are"
+   ]
+  },
+  "s4c5_nomascot": {
+   "has_slogan": true,
+   "has_chips": false,
+   "has_mascot": false,
+   "blocks": [
+    {
+     "kind": "slogan",
+     "lines": 5,
+     "pitch": 140.8,
+     "box": [
+      110,
+      340,
+      975,
+      1010
+     ]
+    },
+    {
+     "kind": "caption",
+     "lines": 5,
+     "pitch": 86.8,
+     "box": [
+      139,
+      1203,
+      913,
+      1612
+     ]
+    }
+   ],
+   "bars": [
+    [
+     90,
+     1690,
+     449,
+     1697
+    ]
+   ],
+   "card": [
+    70,
+    1130,
+    1009,
+    1680
+   ],
+   "violations": [
+    "SAFE_ZONE caption text [139, 1203, 913, 1612] leaves x 90..990 y 270..1480",
+    "SAFE_ZONE caption card edge [70, 1130, 1009, 1680] leaves x 90..990 y 270..1480 (the text inside it may still be inside)",
+    "SAFE_ZONE progress bar y 1690..1697 is in the bottom 440 px, where the platform's own buttons and caption are"
+   ]
+  }
+ },
+ "start": {
+  "0": {
+   "blocks": [],
+   "card": null,
+   "bars": [],
+   "mascot": null,
+   "violations": []
+  },
+  "4": {
+   "blocks": [],
+   "card": null,
+   "bars": [
+    [
+     90,
+     1690,
+     119,
+     1697
+    ]
+   ],
+   "mascot": [
+    275,
+    390,
+    768,
+    927
+   ],
+   "violations": [
+    "SAFE_ZONE progress bar y 1690..1697 is in the bottom 440 px, where the platform's own buttons and caption are"
+   ]
+  },
+  "9": {
+   "blocks": [],
+   "card": null,
+   "bars": [
+    [
+     90,
+     1690,
+     157,
+     1697
+    ]
+   ],
+   "mascot": [
+    285,
+    196,
+    768,
+    737
+   ],
+   "violations": [
+    "SAFE_ZONE progress bar y 1690..1697 is in the bottom 440 px, where the platform's own buttons and caption are"
+   ]
+  },
+  "12": {
+   "blocks": [],
+   "card": null,
+   "bars": [
+    [
+     90,
+     1690,
+     179,
+     1697
+    ]
+   ],
+   "mascot": [
+    307,
+    154,
+    770,
+    694
+   ],
+   "violations": [
+    "SAFE_ZONE progress bar y 1690..1697 is in the bottom 440 px, where the platform's own buttons and caption are"
+   ]
+  },
+  "16": {
+   "blocks": [
+    {
+     "kind": "slogan",
+     "lines": 1,
+     "pitch": null,
+     "box": [
+      297,
+      764,
+      791,
+      863
+     ]
+    }
+   ],
+   "card": null,
+   "bars": [
+    [
+     90,
+     1690,
+     209,
+     1697
+    ]
+   ],
+   "mascot": [
+    317,
+    135,
+    769,
+    677
+   ],
+   "violations": [
+    "SAFE_ZONE progress bar y 1690..1697 is in the bottom 440 px, where the platform's own buttons and caption are"
+   ]
+  },
+  "24": {
+   "blocks": [
+    {
+     "kind": "slogan",
+     "lines": 3,
+     "pitch": 178.0,
+     "box": [
+      266,
+      731,
+      823,
+      1142
+     ]
+    },
+    {
+     "kind": "caption",
+     "lines": 3,
+     "pitch": 87.5,
+     "box": [
+      139,
+      1203,
+      913,
+      1425
+     ]
+    }
+   ],
+   "card": [
+    71,
+    1132,
+    1008,
+    1692
+   ],
+   "bars": [
+    [
+     90,
+     1690,
+     269,
+     1697
+    ]
+   ],
+   "mascot": [
+    319,
+    137,
+    771,
+    680
+   ],
+   "violations": [
+    "SAFE_ZONE caption card edge [71, 1132, 1008, 1692] leaves x 90..990 y 270..1480 (the text inside it may still be inside)",
+    "SAFE_ZONE progress bar y 1690..1697 is in the bottom 440 px, where the platform's own buttons and caption are",
+    "TEXT_OVERLAP slogan [266, 731, 823, 1142] and card [71, 1132, 1008, 1692]",
+    "TEXT_OVERLAP card [71, 1132, 1008, 1692] and bar0 [90, 1690, 269, 1697]"
+   ]
+  }
+ },
+ "transition": {
+  "rows": [
+   {
+    "frame": 70,
+    "ink_A": 43982,
+    "ink_B": 14,
+    "both": false
+   },
+   {
+    "frame": 77,
+    "ink_A": 43981,
+    "ink_B": 14,
+    "both": false
+   },
+   {
+    "frame": 78,
+    "ink_A": 43982,
+    "ink_B": 14,
+    "both": false
+   },
+   {
+    "frame": 79,
+    "ink_A": 43896,
+    "ink_B": 14,
+    "both": false
+   },
+   {
+    "frame": 80,
+    "ink_A": 47070,
+    "ink_B": 1,
+    "both": false
+   },
+   {
+    "frame": 81,
+    "ink_A": 47338,
+    "ink_B": 1002,
+    "both": true
+   },
+   {
+    "frame": 82,
+    "ink_A": 40972,
+    "ink_B": 2110,
+    "both": true
+   },
+   {
+    "frame": 83,
+    "ink_A": 29666,
+    "ink_B": 1947,
+    "both": true
+   },
+   {
+    "frame": 84,
+    "ink_A": 9665,
+    "ink_B": 720,
+    "both": true
+   },
+   {
+    "frame": 85,
+    "ink_A": 0,
+    "ink_B": 0,
+    "both": false
+   },
+   {
+    "frame": 86,
+    "ink_A": 0,
+    "ink_B": 0,
+    "both": false
+   },
+   {
+    "frame": 87,
+    "ink_A": 32,
+    "ink_B": 1237,
+    "both": false
+   },
+   {
+    "frame": 88,
+    "ink_A": 1228,
+    "ink_B": 5069,
+    "both": true
+   },
+   {
+    "frame": 90,
+    "ink_A": 1413,
+    "ink_B": 9123,
+    "both": true
+   },
+   {
+    "frame": 94,
+    "ink_A": 336,
+    "ink_B": 18734,
+    "both": false
+   },
+   {
+    "frame": 112,
+    "ink_A": 548,
+    "ink_B": 25708,
+    "both": true
+   }
+  ],
+  "ghost_frames": [
+   81,
+   82,
+   83,
+   84,
+   88,
+   90,
+   112
+  ]
+ }
+}

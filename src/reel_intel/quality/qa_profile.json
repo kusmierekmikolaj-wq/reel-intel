@@ -1,0 +1,19 @@
+{
+ "pace": {
+  "fast": 6.8,
+  "slow": 3.2
+ },
+ "intonation": {
+  "f0_std_semitones_min": 1.2
+ },
+ "loudness": {
+  "target_lufs": -14.3,
+  "tolerance": 2.0,
+  "uncertain": false
+ },
+ "calibration": {
+  "files": 33,
+  "utterances": 473,
+  "reels": 29
+ }
+}

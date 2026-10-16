@@ -2,9 +2,13 @@
 
   reel-intel make brief            BRIEF_ROLKI.md / REEL_BRIEF.md: what the data says works + the exact JSON an agent (Claude, Jarvis) must return
   reel-intel make check FILE       is the script usable (length, hook, nothing copied from the scanned videos)
-  reel-intel make qa FILE.mp4      checks a rendered reel: gaps between scenes, cut-off sentences, rumble, loudness, clipping, mouth sync (--selftest)
-  reel-intel make render FILE      FILE.mp4 (1080x1920, H.264 + AAC) + FILE_opis.txt, voice-over + animated words, all on this computer
+  reel-intel make qa FILE.mp4      checks a rendered reel (voice, sound, music, picture, captions, the file) and gives a verdict: gotowe / z uwagami / niegotowe
+                                   (exit code 0 / 10 / 1); --selftest puts known faults into synthetic reels and shows that each one is found
+  reel-intel make render FILE      FILE.mp4 (1080x1920, H.264 + AAC) + FILE_opis.txt + FILE_kontrola.md, voice-over + animated words, all on this computer:
+                                   the reel is checked, what can be repaired is repaired and checked again (--rounds N, default 3; --no-check; --quick)
                                    animated version needs `npm install` in studio/ (Remotion); otherwise a simpler renderer runs (--simple forces it)
+  reel-intel make calibrate DIR... [--reels DIR...]   thresholds from real recordings -> quality/qa_profile.json
+  reel-intel make note FILE.mp4 SECONDS KIND [text]   write down what you heard (oddech, tempo, szum, ucięte ...); reel-intel make learn tunes the checker to it
 
 The tool never writes the script itself (no API keys): an agent or a person does. It also never reuses another account's frames or speech:
 `check` warns when a script repeats a run of words from a scanned video. Nothing is published anywhere.
@@ -187,13 +191,31 @@ def chatterbox_ready(script):
     return TTS_PYTHON.is_file() and voice_sample(script) is not None
 
 
-def chatterbox_batch(script, lines, tmp):
-    """all sentences in ONE run of the Chatterbox environment (the model loads once), `takes` recordings of each; the best heard one becomes
-    tmp/s<i>.wav. Returns True when every file exists"""
+def new_recipe():
+    """what the repair loop has changed so far, on top of the script (JSON-able; scene numbers are 0-based): retake = how many times a scene was recorded again,
+    made = how many of those recordings exist, respell = {scene: {word: spelling}}, speed = extra slowing factor, cap = longest last word (s), cut = how much harder
+    the end of the sentence is trimmed (dB), level = bring every scene to the same level, music_mult / hp = the music's volume factor and high-pass (Hz)"""
+    return {"retake": {}, "made": {}, "respell": {}, "speed": {}, "cap": {}, "cut": {}, "level": False, "music_mult": 1.0, "hp": 150}
+
+
+def say_for(script, recipe, i):
+    """the respelling table for scene i: the script's own, then what the repair loop found for that scene"""
+    return {**(script.get("say") or {}), **((recipe or {}).get("respell", {}).get(i) or {})}
+
+
+def chatterbox_batch(script, lines, tmp, only=None, recipe=None):
+    """the sentences `only` (default: all) in ONE run of the Chatterbox environment (the model loads once), `takes` recordings of each; the best heard one becomes
+    tmp/s<i>.wav and is kept as tmp/raw_<i>.wav (the pristine take every later round starts from). A scene recorded again (recipe["retake"]) gets other seeds.
+    Returns True when every file asked for exists"""
     takes = int(script.get("takes", 4))
-    spoken = [spoken_form(text, script["lang"], script.get("say")) for text in lines]
+    recipe = recipe if recipe is not None else new_recipe()
+    idx = sorted(range(len(lines)) if only is None else only)
+    spoken = [spoken_form(text, script["lang"], say_for(script, recipe, i)) for i, text in enumerate(lines)]
+    for i in idx:
+        Path(tmp, f"s{i}.wav").unlink(missing_ok=True)                           # what exists afterwards is new
+    seed = 1000 + 100 * max([recipe["retake"].get(i, 0) for i in idx] or [0])
     spec = {"lang": script["lang"], "ref": str(voice_sample(script) or ""), "exaggeration": script.get("exaggeration", 0.85), "cfg": script.get("cfg", 0.3), "takes": takes,
-            "jobs": [{"text": sp[0], "out": str(Path(tmp) / f"s{i}.wav")} for i, sp in enumerate(spoken)]}
+            "seed": seed, "jobs": [{"text": spoken[i][0], "out": str(Path(tmp) / f"s{i}.wav")} for i in idx]}
     jf = Path(tmp) / "chatterbox_jobs.json"
     jf.write_text(json.dumps(spec, ensure_ascii=False), encoding="utf-8")
     try:
@@ -204,15 +226,23 @@ def chatterbox_batch(script, lines, tmp):
     except Exception as e:
         print(f"chatterbox: {e}")
     if takes > 1:
-        for i, (_text, toks, _owner) in enumerate(spoken):
-            best = pick_take([Path(tmp) / f"s{i}_t{k}.wav" for k in range(takes)], script["lang"], toks)
+        for i in idx:
+            best = pick_take([Path(tmp) / f"s{i}_t{k}.wav" for k in range(takes)], script["lang"], spoken[i][1])
             if best:
                 shutil.copy(best, Path(tmp) / f"s{i}.wav")
+    only_set = set(idx)
     if script.get("learn", True):
-        learn_pronunciation(script, lines, spoken, tmp, spec)
+        learn_pronunciation(script, lines, spoken, tmp, spec, only=only_set)
     if script.get("fix_pace", True):
-        fix_pace(script, lines, spoken, tmp, spec)
-    return all((Path(tmp) / f"s{i}.wav").exists() for i in range(len(lines)))
+        fix_pace(script, lines, spoken, tmp, spec, only=only_set)
+    done = True
+    for i in idx:
+        if Path(tmp, f"s{i}.wav").exists():
+            shutil.copy(Path(tmp, f"s{i}.wav"), Path(tmp, f"raw_{i}.wav"))
+            recipe["made"][i] = recipe["retake"].get(i, 0)
+        else:
+            done = False
+    return done
 
 
 LAST_WORD_MAX = 1.1                                                             # seconds: a longer last word is a dragged vowel
@@ -230,14 +260,14 @@ def speech_rate(wav, lang, text, toks):
     return pronounce.syllable_count(text) / max(al[-1][1] - al[0][0], 0.2), r or 0.0
 
 
-def fix_pace(script, lines, spoken, tmp, spec):
+def fix_pace(script, lines, spoken, tmp, spec, only=None):
     """a sentence spoken too fast is recorded again, steadier (higher cfg) and calmer (lower exaggeration); the take with a natural pace and the
     words heard best replaces it"""
     lang = script["lang"]
     jobs, plan = [], []
     for i, (say_text, toks, _owner) in enumerate(spoken):
         wav = Path(tmp) / f"s{i}.wav"
-        if not wav.exists():
+        if not wav.exists() or (only is not None and i not in only):
             continue
         rate, heard = speech_rate(wav, lang, lines[i], toks)
         if rate is None or rate <= PACE_MAX:
@@ -272,14 +302,14 @@ def fix_pace(script, lines, spoken, tmp, spec):
             print(f"pace: scene {i + 1} now {rate:.1f} syllables/s")
 
 
-def learn_pronunciation(script, lines, spoken, tmp, spec):
+def learn_pronunciation(script, lines, spoken, tmp, spec, only=None):
     """words still not heard after the best take: try respellings in one more Chatterbox run, keep the take that fixes them and remember what worked"""
     from . import pronounce
     lang = script["lang"]
     plan, jobs = [], []
     for i, (_text, toks, owner) in enumerate(spoken):
         wav = Path(tmp) / f"s{i}.wav"
-        if not wav.exists():
+        if not wav.exists() or (only is not None and i not in only):
             continue
         disp = lines[i].split()
         al, r, m, hn = align_words(wav, lang, toks)
@@ -409,19 +439,29 @@ def _wav_info(p):
         return w.getnframes() / w.getframerate(), w.getframerate(), w.getnchannels(), w.getsampwidth()
 
 
-def align_words(wav, lang, words):
+def align_words(wav, lang, words, heard_out=None):
     """[(start, end)] of every script word inside one voice file, read off the speech itself (Whisper word timestamps), matched to the script's words;
-    None when the model is not available. Words it did not hear get evenly spaced times between their neighbours."""
+    None when the model is not available. Words it did not hear get evenly spaced times between their neighbours. `heard_out`: a list that gets every word the
+    recogniser heard, in order, as [word, start, end] (the sidecar keeps them: the quality check tells a skipped word from a mispronounced one with them)."""
     try:
         from .common import whisper_model
         segs, _ = whisper_model().transcribe(str(wav), language=lang, word_timestamps=True, beam_size=1, vad_filter=False, condition_on_previous_text=False)
         heard = [(w.word, w.start, w.end) for s in segs for w in (s.words or [])]
     except Exception:
         return None, None, None, set()
+    if heard_out is not None:
+        heard_out[:] = [[str(w).strip(), round(float(a), 3), round(float(b), 3)] for w, a, b in heard]
     if not heard:
         return None, None, None, set()
+    from . import pronounce
     norm = lambda s: re.sub(r"[\W_]", "", s.lower())
-    sm = difflib.SequenceMatcher(None, [norm(w) for w in words], [norm(h[0]) for h in heard], autojunk=False)
+    nw = [norm(w) for w in words]
+
+    def hnorm(h):                                                              # "30" heard for the script's "trzydzieści" is the same word
+        n = norm(h[0])
+        return next((w for w in nw if n.isdigit() and pronounce.same_number(w, n)), n)
+    hn = [hnorm(h) for h in heard]
+    sm = difflib.SequenceMatcher(None, nw, hn, autojunk=False)
     out = [None] * len(words)
     for tag, i1, i2, j1, j2 in sm.get_opcodes():
         if tag == "equal":
@@ -443,7 +483,7 @@ def align_words(wav, lang, words):
             i = j
         else:
             i += 1
-    return out, ratio, matched, {norm(h[0]) for h in heard}
+    return out, ratio, matched, set(hn) | {norm(h[0]) for h in heard}
 
 
 LEXICON = {"pl": {"ai": "ej aj", "skill": "skil", "skille": "skile", "skilli": "skili", "skilla": "skila", "skillami": "skilami", "skillach": "skilach",
@@ -572,24 +612,75 @@ def trim_wav(path, seconds, fade=0.06):
         w.writeframes(x.astype("int16").tobytes())
 
 
-def timeline(script, tmp):
-    """[{text, screen, start, end, words:[(word, t0, t1)], wav}] and the combined audio path (None when no voice is available)"""
+def _gain_wav(path, db):
+    """the voice file `db` louder (negative: quieter), in place; samples are clipped, not wrapped"""
     import numpy as np
+    with wave.open(str(path)) as w:
+        sr, ch, sw = w.getframerate(), w.getnchannels(), w.getsampwidth()
+        x = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16).astype("float32")
+    x = np.clip(x * (10 ** (db / 20)), -32768, 32767)
+    with wave.open(str(path), "wb") as w:
+        w.setnchannels(ch)
+        w.setsampwidth(sw)
+        w.setframerate(sr)
+        w.writeframes(x.astype("int16").tobytes())
+
+
+def _speech_db(path, a, b):
+    import numpy as np
+    with wave.open(str(path)) as w:
+        sr = w.getframerate()
+        x = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16).astype("float32") / 32768.0
+        if w.getnchannels() > 1:
+            x = x[::w.getnchannels()]
+    seg = x[int(a * sr):int(b * sr)]
+    return float(20 * np.log10(np.sqrt(np.mean(np.square(seg))) + 1e-9)) if len(seg) else -120.0
+
+
+def timeline(script, tmp, recipe=None, meta=None):
+    """[{text, screen, start, end, words:[(word, t0, t1)], wav}] and the combined audio path (None when no voice is available).
+    `recipe` (new_recipe()) is what the repair loop changed; the pristine take of every scene stays in tmp/raw_<i>.wav, so a later round starts from it and only the
+    scenes the recipe asks for are recorded again. `meta` (a dict) is filled with engine_wanted and engine_used."""
+    import numpy as np
+    recipe = recipe if recipe is not None else new_recipe()
+    meta = meta if meta is not None else {}
+    tmp = Path(tmp)
     lines = [(s["text"].strip(), s.get("screen", ""), s.get("emphasis") or [], s.get("chips") or []) for s in script["scenes"]]
     if script.get("cta"):
         lines.append((script["cta"].strip(), "", [], []))
     scenes, t, chunks, sr = [], 0.4, [], 22050
     engine = engine_for(script)
-    prebuilt = engine == "chatterbox" and chatterbox_batch(script, [l[0] for l in lines], tmp)
-    if engine == "chatterbox" and not prebuilt:
-        engine = "piper" if _piper_model(script.get("lang", "pl")) else "sapi"          # the cloned voice failed: say so and use a local one
+    meta["engine_wanted"] = engine
+    redo = {i for i in range(len(lines)) if not (tmp / f"raw_{i}.wav").exists() or recipe["retake"].get(i, 0) != recipe["made"].get(i, 0)}
+    prebuilt = False
+    if engine == "chatterbox":
+        prebuilt = (chatterbox_batch(script, [l[0] for l in lines], tmp, only=redo, recipe=recipe) if redo else True) and all((tmp / f"raw_{i}.wav").exists() for i in range(len(lines)))
+        if not prebuilt and all((tmp / f"raw_{i}.wav").exists() for i in range(len(lines))):
+            prebuilt = True                                                  # a retake failed: the earlier takes are still there
+            meta["retake_failed"] = sorted(i for i in redo if recipe["retake"].get(i, 0) != recipe["made"].get(i, 0))
+        if not prebuilt:
+            engine = "piper" if _piper_model(script.get("lang", "pl")) else "sapi"          # the cloned voice failed: say so and use a local one
+    meta["engine_used"] = engine
     have_voice = True
     for i, (text, screen, emph, chips) in enumerate(lines):
-        wav = Path(tmp) / f"s{i}.wav"
+        wav, raw = tmp / f"s{i}.wav", tmp / f"raw_{i}.wav"
         dur = None
-        say_text, toks, owner = spoken_form(text, script["lang"], script.get("say"))
-        if have_voice and ((prebuilt and wav.exists()) or tts(say_text, script["lang"], str(wav), script.get("rate", 0), engine)):
-            speed = float(script.get("speed", 0.93))
+        say_text, toks, owner = spoken_form(text, script["lang"], say_for(script, recipe, i))
+        ok = False
+        if have_voice:
+            if engine == "chatterbox":
+                ok = prebuilt and raw.exists()
+            elif i in redo or not raw.exists():
+                ok = tts(say_text, script["lang"], str(wav), script.get("rate", 0), engine)
+                if ok and wav.exists():
+                    shutil.copy(wav, raw)
+                    recipe["made"][i] = recipe["retake"].get(i, 0)
+            else:
+                ok = raw.exists()
+            if ok and raw.exists():
+                shutil.copy(raw, wav)                                          # every round starts from the pristine take
+        if have_voice and ok:
+            speed = float(script.get("speed", 0.93)) * float(recipe["speed"].get(i, 1.0))
             if 0.5 <= speed < 0.999:                                           # a calmer pace without a deeper voice
                 slow_wav(wav, speed)
             dur, sr, ch, sw = _wav_info(wav)
@@ -598,11 +689,12 @@ def timeline(script, tmp):
             dur = max(1.6, len(text.split()) / WPS)
         ws = text.split()
         tot = sum(len(w) + 1 for w in ws)
-        tal, theard, tmatch, theardset = align_words(wav, script["lang"], toks) if have_voice else (None, None, None, set())     # the real word times, when the voice exists
+        heard_out = []
+        tal, theard, tmatch, theardset = align_words(wav, script["lang"], toks, heard_out) if have_voice else (None, None, None, set())     # the real word times, when the voice exists
         al = heard = None
         missed = []
         if tal:                                                                # tokens back to script words (a respelled word may be several tokens)
-            al = [(min(tal[k][0] for k in range(len(toks)) if owner[k] == i), max(tal[k][1] for k in range(len(toks)) if owner[k] == i)) for i in range(len(ws))]
+            al = [(min(tal[k][0] for k in range(len(toks)) if owner[k] == i) , max(tal[k][1] for k in range(len(toks)) if owner[k] == i)) for i in range(len(ws))]
             hit = word_hits(ws, owner, tmatch, theardset)
             heard = sum(hit) / max(len(ws), 1)
             missed = [w for w, h in zip(ws, hit) if not h]
@@ -617,16 +709,19 @@ def timeline(script, tmp):
                 print(f"pace: scene {i + 1} was {rate:.1f} syllables a second, slowed to {rate * f:.1f}")
         tail = 0.0
         if al and heard >= 0.5:
+            cut = float(recipe["cut"].get(i, 0.0))
+            cap = float(recipe["cap"].get(i, 0.85))
             end_words = al[-1][1]
-            end_sound = speech_end(wav)                                        # where the voice really stops being speech: a word the recognizer
+            end_sound = speech_end(wav, -24.0 + cut)                           # where the voice really stops being speech: a word the recognizer
             end = end_sound if end_sound else end_words                        # missed ("AI") is kept, the breathy tail it counted is not
-            if al[-1][1] - al[-1][0] > LAST_WORD_MAX + 0.1 or end - al[-1][0] > LAST_WORD_MAX + 0.1:       # the last word is dragged out: cut it short
-                end = al[-1][0] + 0.85
-                print(f"voice: scene {i + 1}: the sound after the last word started ran on for {speech_end(wav) - al[-1][0]:.1f} s, cut to 0.85 s")
+            dragged = al[-1][1] - al[-1][0] > LAST_WORD_MAX + 0.1 or end - al[-1][0] > LAST_WORD_MAX + 0.1
+            if dragged:                                                        # the last word is dragged out: cut it short
+                end = al[-1][0] + cap
+                print(f"voice: scene {i + 1}: the sound after the last word started ran on for {(end_sound or end_words) - al[-1][0]:.1f} s, cut to {cap:.2f} s")
             tail = max(0.0, dur - end)
-            keep = end + 0.1
+            keep = end + (0.1 if not cut else 0.05)
             if dur - keep > 0.05:                                              # breath, murmur and dead air after the last word: cut it
-                trim_wav(wav, keep, fade=0.15 if end == al[-1][0] + 0.85 else 0.08)
+                trim_wav(wav, keep, fade=0.15 if dragged else 0.08)
                 dur = keep
             al[-1] = (al[-1][0], min(max(end, al[-1][0] + 0.05), al[-1][1]) if end < end_words else end)
         c, words = 0, []
@@ -636,8 +731,18 @@ def timeline(script, tmp):
             else:                                                            # otherwise a word's share of the sentence, by its length
                 words.append((w, t + dur * c / tot, t + dur * (c + len(w) + 1) / tot))
             c += len(w) + 1
-        scenes.append({"text": text, "screen": screen, "heard": heard, "missed": missed, "tail": round(tail, 2), "emphasis": [re.sub(r"\W", "", e.lower()) for e in emph], "chips": [str(c) for c in chips][:4], "start": t, "end": t + dur, "words": words, "wav": wav if have_voice else None})
+        scenes.append({"text": text, "screen": screen, "heard": heard, "missed": missed, "heard_words": [h[0] for h in heard_out], "tail": round(tail, 2),
+                       "emphasis": [re.sub(r"\W", "", e.lower()) for e in emph], "chips": [str(c) for c in chips][:4], "start": t, "end": t + dur, "words": words,
+                       "wav": wav if have_voice else None})
         t += dur + GAP
+    if have_voice and recipe.get("level") and len(scenes) > 1:                  # the same speech level in every scene
+        lv = [(s, _speech_db(s["wav"], s["words"][0][1] - s["start"], s["words"][-1][2] - s["start"])) for s in scenes if s["wav"] and s["words"]]
+        if len(lv) > 1:
+            med = sorted(v for _s, v in lv)[len(lv) // 2]
+            for s, v in lv:
+                g = max(-6.0, min(6.0, med - v))
+                if abs(g) > 0.5:
+                    _gain_wav(s["wav"], g)
     total = t + 0.6
     audio = None
     if have_voice:
@@ -649,7 +754,7 @@ def timeline(script, tmp):
                     x = x[::w.getnchannels()]
             a = int(s["start"] * sr)
             buf[a:a + len(x)] = x[:max(0, len(buf) - a)]
-        audio = Path(tmp) / "voice.wav"
+        audio = tmp / "voice.wav"
         with wave.open(str(audio), "wb") as w:
             w.setnchannels(1)
             w.setsampwidth(2)
@@ -819,26 +924,74 @@ def studio_dir():
     return d if (d / "node_modules" / ".bin").is_dir() and (d / "src" / "Reel.tsx").exists() else None
 
 
-def final_audio(script, voice, total, tmp, scenes=None):
-    """the voice with a music bed under it (unless the script says "music": "off"); the voice alone when there is none or the mix fails"""
+def master_wav(src, out, target_lufs, ceiling=-1.0):
+    """the mix brought to the loudness a short-video platform expects: a linear gain to `target_lufs` (BS.1770-4, read as the dual-mono stereo file the mp4 holds)
+    and a look-ahead true-peak limiter at `ceiling` dBTP (quality/mix.py master). Written as a two-channel wav with the same sound in both. Returns the numbers of the step"""
+    import numpy as np
+    from .quality import mix as qmix
+    with wave.open(str(src)) as w:
+        sr = w.getframerate()
+        x = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16).astype("float32") / 32768.0
+        if w.getnchannels() > 1:
+            x = x[::w.getnchannels()]
+    y, info = qmix.master(x, sr, target_lufs, ceiling, dual_mono=True)
+    pcm = (np.clip(y, -1, 1) * 32767).astype("int16")
+    with wave.open(str(out), "wb") as w:                                       # the same sound on both channels, written as two: an encoder that is given a mono file and asked for
+        w.setnchannels(2)                                                      # stereo lowers each channel by 3 dB (power is kept), and then the file reads 3 LU under the target
+        w.setsampwidth(2)
+        w.setframerate(sr)
+        w.writeframes(np.repeat(pcm, 2).tobytes())
+    num = lambda r, k: None if r.get(k) is None else round(float(r[k]), 2)
+    return {"target_lufs": target_lufs, "ceiling_db": ceiling, "before_lufs": num(info["before"], "integrated"), "after_lufs": num(info["after"], "integrated"),
+            "true_peak_db": num(info["after"], "true_peak_db"), "gain_db": round(float(info["gain_db"]), 2), "limited": bool(info["limited"]), "reached": bool(info["reached"]),
+            "reason": info["reason"]}
+
+
+def final_audio(script, voice, total, tmp, scenes=None, recipe=None, meta=None):
+    """the voice with a music bed under it (unless the script says "music": "off"), then mastered to the loudness target of the quality profile (unless "master": false);
+    the voice alone when there is no music or the mix fails. The music alone, as mixed, is left in tmp/music_stem.wav. Returns the wav to put under the picture."""
+    recipe = recipe if recipe is not None else new_recipe()
+    meta = meta if meta is not None else {}
+    tmp = Path(tmp)
     mode = script.get("music", "bed")
-    if not voice or mode == "off":
+    meta.pop("music_stem", None)
+    if not voice:
         return voice
-    from . import music
-    src = mode if mode not in ("bed", True) else None
-    if src and not Path(src).is_file():
-        src = None
-    if not src:
-        src = Path(tmp) / "bed.wav"
-        music.write_wav(src, music.bed(total + 1))
-    mixed = Path(tmp) / "mixed.wav"
-    spans = [(s["words"][0][1], s["words"][-1][2]) for s in (scenes or []) if s["words"]]
-    vol = float(script.get("music_volume", 0.2))
-    ok = music.mix_steady(voice, src, mixed, spans, vol) if spans else music.mix(voice, src, mixed, vol)
-    return mixed if ok else voice
+    mixed = voice
+    if mode != "off":
+        from . import music
+        src = mode if mode not in ("bed", True) else None
+        if src and not Path(src).is_file():
+            src = None
+        if not src:
+            src = tmp / "bed.wav"
+            music.write_wav(src, music.bed(total + 1))
+        out = tmp / "mixed.wav"
+        spans = [(s["words"][0][1], s["words"][-1][2]) for s in (scenes or []) if s["words"]]
+        vol = float(script.get("music_volume", 0.2)) * float(recipe.get("music_mult", 1.0))
+        stem = tmp / "music_stem.wav"
+        stem.unlink(missing_ok=True)
+        ok = music.mix_steady(voice, src, out, spans, vol, stem_wav=stem, hp=int(recipe.get("hp", 150))) if spans else music.mix(voice, src, out, vol)
+        if ok:
+            mixed = out
+            if stem.exists():
+                meta["music_stem"] = str(stem)
+    if script.get("master", True):
+        from .quality import profile as qprofile
+        prof = qprofile.load()
+        target = float(script.get("loudness") or prof["loudness"]["target_lufs"])
+        try:
+            info = master_wav(mixed, tmp / "final.wav", target, float(prof["loudness"].get("true_peak_max", -1.0)))
+        except Exception as e:                                                 # a failed master never blocks the reel: the check will say that it is too quiet
+            print(f"master: {e}")
+            info = None
+        if info:
+            meta["master"] = info
+            return tmp / "final.wav"
+    return mixed
 
 
-def render_remotion(script, scenes, total, audio, out, studio, play=None):
+def render_remotion(script, scenes, total, audio, out, studio, play=None, mouth=None):
     """the animated version: the timeline and the voice are made here, Remotion draws the pictures"""
     npx = shutil.which("npx.cmd") or shutil.which("npx")
     if not npx:
@@ -846,7 +999,7 @@ def render_remotion(script, scenes, total, audio, out, studio, play=None):
     work = studio / "public" / "_work"
     work.mkdir(parents=True, exist_ok=True)
     tag = uuid.uuid4().hex[:8]
-    mouth = mouth_track(audio, scenes, total)
+    mouth = mouth if mouth is not None else mouth_track(audio, scenes, total)
     props = {"total": total, "audio": "", "mascot": bool(script.get("mascot", True)), "mouth": mouth, "vis": viseme_track(scenes, mouth, total), "scenes": [{"text": s["text"], "screen": s["screen"], "emphasis": s["emphasis"], "chips": s.get("chips", []),
                                                         "start": s["start"], "end": s["end"], "words": [[w, a, b] for w, a, b in s["words"]]} for s in scenes]}
     if audio:
@@ -865,41 +1018,227 @@ def render_remotion(script, scenes, total, audio, out, studio, play=None):
             p.unlink(missing_ok=True)
 
 
-def render(script, out_mp4, simple=False):
-    """script dict -> out_mp4 (+ sidecar caption file); returns the output path"""
+def _sidecar(script, scenes, total, audio, meta, recipe, simple, mouth):
+    """the sidecar (<reel>.qa.json), version 2: the timeline the quality check reads, and everything it needs to tell a fault of the reel from a fault of how it was
+    made (which voice engine, which renderer, with which parameters, mastered to what)"""
+    return {"version": 2, "total": total, "mouth": mouth,
+            "scenes": [{"text": s["text"], "screen": s["screen"], "start": s["start"], "end": s["end"], "heard": s.get("heard"), "missed": s.get("missed", []),
+                        "heard_words": s.get("heard_words", []), "tail": s.get("tail", 0), "words": [[w, a, b] for w, a, b in s["words"]]} for s in scenes],
+            "params": {"lang": script.get("lang"), "say": script.get("say") or {}, "fps": FPS, "mascot": bool(script.get("mascot", True)), "simple": bool(simple),
+                       "voice": script.get("voice"), "takes": script.get("takes", 4), "speed": script.get("speed", 0.93), "exaggeration": script.get("exaggeration", 0.85),
+                       "cfg": script.get("cfg", 0.3), "music": script.get("music", "bed"), "music_volume": script.get("music_volume", 0.2), "master": script.get("master", True)},
+            "engine_wanted": meta.get("engine_wanted"), "engine_used": meta.get("engine_used"), "renderer_wanted": "pil" if simple else "remotion", "renderer": None,
+            "master": meta.get("master"), "has_music_stem": bool(meta.get("music_stem")), "recipe": json.loads(json.dumps(recipe))}
+
+
+def _write_sidecar(out, side):
+    out.with_suffix(".qa.json").write_text(json.dumps(side, ensure_ascii=False), encoding="utf-8")
+
+
+def mux_audio(video_mp4, wav, out_mp4):
+    """the picture of an mp4 kept as it is (no new render), with another sound track: how a repair that only changes the sound is applied in seconds"""
+    r = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(video_mp4), "-i", str(wav), "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac",
+                        "-b:a", "192k", "-ac", "2", "-ar", "48000", "-movflags", "+faststart", "-shortest", str(out_mp4)], capture_output=True, text=True)
+    return r.returncode == 0 and Path(out_mp4).exists()
+
+
+def render(script, out_mp4, simple=False, workdir=None, recipe=None, meta=None, audio_only=False):
+    """script dict -> out_mp4 (+ the caption file, the sidecar <reel>.qa.json, the dry voice <reel>_voice.wav and the music stem <reel>_music.wav); returns the output path.
+    `workdir` keeps the takes between rounds of the repair loop and `recipe` what the loop changed (both given: only the scenes the recipe names are recorded
+    again); `audio_only`: the picture of the existing out_mp4 is kept and only the sound is made again and put under it (the repair actions that change no timing)."""
     out = Path(out_mp4)
     out.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix="reelmake_") as tmp:
-        scenes, total, audio = timeline(script, tmp)
+    recipe = recipe if recipe is not None else new_recipe()
+    meta = meta if meta is not None else {}
+    own = workdir is None
+    holder = tempfile.TemporaryDirectory(prefix="reelmake_") if own else None
+    tmp = Path(holder.name if own else workdir)
+    tmp.mkdir(parents=True, exist_ok=True)
+    try:
+        scenes, total, audio = timeline(script, tmp, recipe, meta)
         studio = None if simple else studio_dir()
-        play = final_audio(script, audio, total, tmp, scenes)
-        side = {"total": total, "mouth": mouth_track(audio, scenes, total) if audio else [],
-                "scenes": [{"text": s["text"], "screen": s["screen"], "start": s["start"], "end": s["end"], "heard": s.get("heard"), "missed": s.get("missed", []), "tail": s.get("tail", 0),
-                            "words": [[w, a, b] for w, a, b in s["words"]]} for s in scenes]}
-        out.with_suffix(".qa.json").write_text(json.dumps(side, ensure_ascii=False), encoding="utf-8")
+        play = final_audio(script, audio, total, tmp, scenes, recipe, meta)
+        mouth = mouth_track(audio, scenes, total) if audio else []
+        side = _sidecar(script, scenes, total, audio, meta, recipe, simple, mouth)
         if audio:
             shutil.copy(audio, out.with_name(out.stem + "_voice.wav"))
-        if studio and render_remotion(script, scenes, total, audio, out, studio, play):
-            cap = (script.get("caption") or "").strip() + "\n\n" + " ".join(script.get("hashtags") or []) + "\n"
-            out.with_name(out.stem + "_opis.txt").write_text(cap, encoding="utf-8")
-            return out
-        base = make_background()
-        cmd = ["ffmpeg", "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-"]
-        if audio:
-            cmd += ["-i", str(play or audio)]
-        cmd += ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p", "-t", f"{total:.2f}"]
-        cmd += (["-c:a", "aac", "-b:a", "160k", "-shortest"] if audio else ["-an"]) + ["-movflags", "+faststart", str(out)]
-        p = subprocess.Popen(cmd, stdin=subprocess.PIPE)
-        n = int(total * FPS)
-        try:
-            for k in range(n):
-                p.stdin.write(frame(k / FPS, scenes, total, base).tobytes())
-        finally:
-            p.stdin.close()
-            p.wait()
-    cap = (script.get("caption") or "").strip() + "\n\n" + " ".join(script.get("hashtags") or []) + "\n"
-    out.with_name(out.stem + "_opis.txt").write_text(cap, encoding="utf-8")
+        stem = out.with_name(out.stem + "_music.wav")
+        if meta.get("music_stem") and Path(meta["music_stem"]).exists():
+            shutil.copy(meta["music_stem"], stem)
+        else:
+            stem.unlink(missing_ok=True)
+        cap = (script.get("caption") or "").strip() + "\n\n" + " ".join(script.get("hashtags") or []) + "\n"
+        if audio_only and out.exists() and (play or audio) and mux_audio(out, play or audio, tmp / "remux.mp4"):
+            shutil.copy(tmp / "remux.mp4", out)
+            side["renderer"] = meta.get("renderer") or side["renderer_wanted"]
+        else:
+            _write_sidecar(out, side)                                          # the timeline is on disk while the picture is being drawn
+            if studio and render_remotion(script, scenes, total, audio, out, studio, play, mouth):
+                side["renderer"] = "remotion"
+            else:
+                side["renderer"] = "pil"
+                base = make_background()
+                cmd = ["ffmpeg", "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-"]
+                if audio:
+                    cmd += ["-i", str(play or audio)]
+                cmd += ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p", "-t", f"{total:.2f}"]
+                cmd += (["-c:a", "aac", "-b:a", "160k", "-ac", "2", "-shortest"] if audio else ["-an"]) + ["-movflags", "+faststart", str(out)]
+                pr = subprocess.Popen(cmd, stdin=subprocess.PIPE)
+                try:
+                    for k in range(int(total * FPS)):
+                        pr.stdin.write(frame(k / FPS, scenes, total, base).tobytes())
+                finally:
+                    pr.stdin.close()
+                    pr.wait()
+        meta["renderer"] = side["renderer"]
+        out.with_name(out.stem + "_opis.txt").write_text(cap, encoding="utf-8")
+        if out.exists():
+            from .quality import engine as qengine
+            side["mp4_sha256"] = qengine.sha256(out)                           # the check refuses a sidecar that does not belong to the file next to it
+            side["mp4_bytes"] = out.stat().st_size
+        _write_sidecar(out, side)
+    finally:
+        if holder is not None:
+            holder.cleanup()
     return out
+
+
+def apply_repair(script, recipe, a, meta, log=print):
+    """change the recipe for ONE repair action of quality/repair.py; True when that changed something, False when the action does not apply here (a deterministic voice
+    engine has nothing to record again; a layout has no lever yet). Nothing is rendered here: render() does that once for the whole round."""
+    i = None if a.scene is None else a.scene - 1
+    k = a.kind
+    findings = a.data.get("findings", [])
+    if k == "retake_scene":
+        if meta.get("engine_used") != "chatterbox":
+            log(f"repair: scene {a.scene} cannot be recorded again: the voice engine ({meta.get('engine_used')}) says the same thing every time")
+            return False
+        recipe["retake"][i] = recipe["retake"].get(i, 0) + 1
+        return True
+    if k == "respell":
+        from . import pronounce
+        lang = script.get("lang", "pl")
+        used = recipe["respell"].setdefault(i, {})
+        tried = recipe.setdefault("respell_tried", {}).setdefault(i, {})
+        changed = False
+        for w in [w for f in findings for w in (f.get("words") or [])]:
+            key = pronounce.key(w)
+            seen = tried.setdefault(key, [])
+            for c in pronounce.candidates(w, lang):
+                if c not in seen:
+                    seen.append(c)
+                    used[key] = c
+                    changed = True
+                    break
+        if not changed:                                                        # no spelling left to try: a new take is the next best thing
+            return apply_repair(script, recipe, type(a)("retake_scene", a.scene, a.codes, a.data), meta, log)
+        recipe["retake"][i] = recipe["retake"].get(i, 0) + 1
+        return True
+    if k == "slow_scene":
+        rate = max([max(f.get("heard") or 0, f.get("by_words") or 0, f.get("rate") or 0) for f in findings] or [0]) or 7.0
+        new = float(recipe["speed"].get(i, 1.0)) * max(0.78, min(0.95, 5.8 / rate))
+        if new < 0.72:
+            return False
+        recipe["speed"][i] = round(new, 3)
+        return True
+    if k == "retrim_scene":
+        cut, cap = float(recipe["cut"].get(i, 0.0)), float(recipe["cap"].get(i, 0.85))
+        if cut >= 18.0 and cap <= 0.45:
+            return False
+        recipe["cut"][i] = min(18.0, cut + 6.0)
+        recipe["cap"][i] = round(max(0.45, cap - 0.25), 2)
+        return True
+    if k == "level_scenes":
+        if recipe.get("level"):
+            return False
+        recipe["level"] = True
+        return True
+    if k == "remix":
+        if float(recipe.get("music_mult", 1.0)) <= 0.26 and int(recipe.get("hp", 150)) >= 200:
+            return False
+        recipe["music_mult"] = round(max(0.25, float(recipe.get("music_mult", 1.0)) * 0.7), 3)
+        recipe["hp"] = 200
+        return True
+    if k == "master":
+        if script.get("master", True):
+            return False                                                       # it was mastered already: the target is out of reach (the limiter protects the peaks)
+        script["master"] = True
+        return True
+    if k == "relayout":
+        log("repair: the layout has no automatic lever (the safe-zone layout is computed in studio/src/layout.ts); a person has to look at this")
+        return False
+    return k == "rerender"
+
+
+def render_checked(script, out_mp4, simple=False, rounds=3, quick=False, log=print):
+    """render the reel, check it, repair what can be repaired and check again (at most `rounds` times), then write <reel>_kontrola.md and put the verdict into
+    <reel>.qa.json. Returns {out, verdict, exit, findings, summary, history}. `quick` leaves out the slow checks (the sound-event model, the OCR, the recogniser)."""
+    from .quality import engine as qengine, notes as qnotes, repair, verdict
+    out = Path(out_mp4)
+    work = Path(tempfile.mkdtemp(prefix="reelwork_"))
+    recipe, meta = new_recipe(), {}
+    opts = {"ears": not quick, "ocr": not quick, "do_rehear": not quick}
+    state = {}
+    try:
+        render(script, out, simple, workdir=work, recipe=recipe, meta=meta)
+
+        def check():
+            r = qengine.check_reel(out, **opts)
+            state["last"] = r
+            return r["findings"]
+
+        def apply(a):
+            ok = apply_repair(script, recipe, a, meta, log)
+            log(f"repair: {a.kind}" + (f" scene {a.scene}" if a.scene else "") + f" ({', '.join(a.codes)}): {'done' if ok else 'not possible'}")
+            return ok
+
+        def rebuild(p):
+            log("rendering again" if not p.audio_only else "mixing again (the picture stays)")
+            render(script, out, simple, workdir=work, recipe=recipe, meta=meta, audio_only=p.audio_only)
+
+        def snapshot():
+            snap = Path(tempfile.mkdtemp(prefix="reelsnap_"))
+            for name in (out.name, out.with_suffix(".qa.json").name, out.stem + "_voice.wav", out.stem + "_music.wav", out.stem + "_opis.txt"):
+                if (out.parent / name).is_file():
+                    shutil.copy(out.parent / name, snap / name)
+            import copy
+            return {"dir": snap, "recipe": copy.deepcopy(recipe), "script_master": script.get("master", True)}
+
+        def restore(snap):
+            for f in Path(snap["dir"]).iterdir():
+                shutil.copy(f, out.parent / f.name)
+            import copy
+            recipe.clear()
+            recipe.update(copy.deepcopy(snap["recipe"]))
+            script["master"] = snap["script_master"]
+            shutil.rmtree(snap["dir"], ignore_errors=True)
+
+        side_now = lambda: (json.loads(out.with_suffix(".qa.json").read_text(encoding="utf-8")) if out.with_suffix(".qa.json").exists() else {"scenes": []})
+        res = repair.run_loop(check, apply, rebuild, scenes_of=lambda: side_now().get("scenes", []), max_rounds=rounds, snapshot=snapshot, restore=restore, log=log)
+        findings = res.findings
+        last = state.get("last") or {}
+        rep_notes = None
+        nts = qnotes.load_notes(reel=out)
+        if nts:
+            rep_notes = qnotes.recall_report(qnotes.match(nts, findings, scenes=side_now().get("scenes", [])))
+        summary = verdict.summarize(findings, res.history, checked=list(qengine.ORDER), notes_report=rep_notes)
+        summary["manual"] = res.manual
+        summary["stopped"] = res.stopped
+        side = side_now()
+        for k in ("video", "rehear"):
+            if (last.get("side") or {}).get(k):
+                side[k] = last["side"][k]
+        side["qa"] = {k: v for k, v in summary.items() if k != "findings"}
+        side["qa"]["findings"] = summary["findings"][:60]
+        out.with_suffix(".qa.json").write_text(json.dumps(side, ensure_ascii=False), encoding="utf-8")
+        md = verdict.report_pl(findings, res.history, title=f"Kontrola rolki {out.stem}", notes_report=rep_notes)
+        if res.manual:
+            md += "\n## Czego system nie naprawił sam\n\n" + "\n".join(f"- `{m['code']}`" + (f", scena {m['scene']}" if m.get("scene") else "") + f": {m['why']}" for m in res.manual) + "\n"
+        out.with_name(out.stem + "_kontrola.md").write_text(md, encoding="utf-8")
+        print(verdict.format_console(findings, res.history))
+        return {"out": out, "verdict": summary["verdict"], "exit": summary["exit"], "findings": findings, "summary": summary, "history": res.history}
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
 
 
 def main(argv=None):
@@ -907,9 +1246,9 @@ def main(argv=None):
     sub = a.pop(0) if a else ""
     if sub == "brief":
         return brief() or 0
-    if sub == "qa":
+    if sub in ("qa", "calibrate", "note", "learn"):
         from . import reel_qa
-        return reel_qa.main(a)
+        return reel_qa.main([sub, *a])
     if sub in ("check", "render") and a:
         script = load_script(a[0])
         probs = check(script)
@@ -921,15 +1260,16 @@ def main(argv=None):
         if any(s == "ERROR" for s, _ in probs):
             return 1
         out = Path(a[0]).with_suffix(".mp4")
-        render(script, out, simple="--simple" in a)
-        print(f"{out} ({out.stat().st_size // 1024} KB)")
-        try:
-            from . import reel_qa
-            print("reel check:")
-            reel_qa.report(reel_qa.run(out))
-        except Exception as e:                                             # the check never blocks the file
-            print(f"reel check skipped: {e}")
-        return 0
+        if "--no-check" in a:
+            render(script, out, simple="--simple" in a)
+            print(f"{out} ({out.stat().st_size // 1024} KB)")
+            return 0
+        rounds = 3
+        if "--rounds" in a and a.index("--rounds") + 1 < len(a):
+            rounds = max(0, int(a[a.index("--rounds") + 1]))
+        res = render_checked(script, out, simple="--simple" in a, rounds=rounds, quick="--quick" in a)
+        print(f"{out} ({out.stat().st_size // 1024} KB)  werdykt: {res['verdict']}  raport: {out.with_name(out.stem + '_kontrola.md').name}")
+        return res["exit"]
     print(__doc__)
     return 2
 

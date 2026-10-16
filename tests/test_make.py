@@ -150,8 +150,8 @@ def test_music_is_mixed_under_the_voice(tmp_path):
 
 def test_reel_qa_selftest_catches_every_injected_fault():
     from reel_intel import reel_qa
-    caught, total = reel_qa.selftest()
-    assert caught == total
+    caught, total = reel_qa.selftest(groups=("audio", "speech", "mix", "platform", "sync"), log=lambda *_a: None)      # the picture group has its own tests
+    assert caught == total and total > 40
 
 
 def test_timeline_without_voice_still_reports_the_script_words(tmp_path, monkeypatch):
@@ -233,3 +233,86 @@ def test_ears_interpretation_flags_breaths_between_and_inside_scenes():
     res = reel_qa.hear(ears, scenes)
     assert len(res) == 2 and "scene 1" in res[0][2] and "Gasp" in res[0][2] and "between scenes" in res[1][2]
     assert reel_qa.hear({"window": 1.0, "hop": 0.5, "windows": [{"t": 0.0, "labels": [["Speech", 0.9], ["Music", 0.5]]}]}, scenes) == []
+
+
+def test_app_reports_the_verdict_of_a_render_and_serves_the_report(tmp_path, monkeypatch):
+    """a render exits with the verdict of its check (10 = z uwagami): the app still has a video, shows the verdict and links the report"""
+    import threading
+    import time
+    import urllib.request
+    from reel_intel import server
+    rd = tmp_path / "bmw" / "rolki"
+    rd.mkdir(parents=True)
+    (tmp_path / "bmw" / "Reele.html").write_text("<title>x</title>", encoding="utf-8")
+    (rd / "r.mp4").write_bytes(b"x" * 100)
+    (rd / "r.qa.json").write_text(json.dumps({"qa": {"verdict": "z uwagami"}}), encoding="utf-8")
+    (rd / "r_kontrola.md").write_text("# Kontrola rolki r\n", encoding="utf-8")
+    monkeypatch.setattr(server, "WORK", tmp_path)
+    monkeypatch.setattr(server, "LIBRARY", None)
+
+    class Done:
+        returncode, stdout, stderr = 10, "werdykt: z uwagami", ""
+    monkeypatch.setattr(server.subprocess, "run", lambda *a, **k: Done())
+    ok, _msg = server.start_make("scan:bmw", "render", json.dumps(good()), "r", "pl")
+    assert ok
+    for _ in range(100):
+        if server.MAKE["state"] != "running":
+            break
+        time.sleep(0.05)
+    assert server.MAKE["state"] == "done" and server.MAKE["verdict"] == "z uwagami"
+    assert server.MAKE["video"].endswith("/r.mp4") and server.MAKE["report"].endswith("/r_kontrola.md")
+    srv = server.make_server(0)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{srv.server_address[1]}"
+    try:
+        st = json.loads(urllib.request.urlopen(base + "/api/make/state").read())
+        assert st["verdict"] == "z uwagami" and st["report"].endswith("_kontrola.md")
+        assert urllib.request.urlopen(base + st["report"]).read().decode("utf-8").startswith("# Kontrola")
+    finally:
+        srv.shutdown()
+
+
+def test_app_calls_a_render_that_did_not_run_an_error(tmp_path, monkeypatch):
+    import time
+    from reel_intel import server
+    (tmp_path / "bmw" / "rolki").mkdir(parents=True)
+    (tmp_path / "bmw" / "Reele.html").write_text("<title>x</title>", encoding="utf-8")
+    monkeypatch.setattr(server, "WORK", tmp_path)
+    monkeypatch.setattr(server, "LIBRARY", None)
+
+    class Failed:
+        returncode, stdout, stderr = 2, "", "boom"
+    monkeypatch.setattr(server.subprocess, "run", lambda *a, **k: Failed())
+    server.start_make("scan:bmw", "render", json.dumps(good()), "r", "pl")
+    for _ in range(100):
+        if server.MAKE["state"] != "running":
+            break
+        time.sleep(0.05)
+    assert server.MAKE["state"] == "error" and server.MAKE["video"] is None and server.MAKE["verdict"] is None
+
+
+def test_a_number_the_recogniser_wrote_in_digits_is_the_numeral_that_was_said():
+    from reel_intel import pronounce
+    assert pronounce.numeral_value("Trzydzieści") == 30 and pronounce.numeral_value("thirty") == 30 and pronounce.numeral_value("słowo") is None
+    assert pronounce.numeral_value("dwieście") == 200 and pronounce.numeral_value("tysiąc") == 1000
+    assert pronounce.same_number("Trzydzieści", "30") and pronounce.same_number("thirty", "30.") and not pronounce.same_number("Trzydzieści", "31")
+    assert not pronounce.same_number("rolek", "30") and not pronounce.same_number("Trzydzieści", "trzydzieści")
+
+
+def test_alignment_counts_digits_for_a_numeral_as_heard(monkeypatch):
+    import types
+
+    class W:
+        def __init__(self, w, s, e):
+            self.word, self.start, self.end = w, s, e
+
+    class Model:
+        def transcribe(self, *a, **k):
+            return [types.SimpleNamespace(words=[W(" 30", 0.0, 0.5), W(" rolek", 0.5, 0.9), W(" konkurencji", 0.9, 1.6)])], None
+    from reel_intel import common
+    monkeypatch.setattr(common, "whisper_model", lambda: Model())
+    heard = []
+    al, ratio, matched, heardset = make.align_words("x.wav", "pl", ["Trzydzieści", "rolek", "konkurencji"], heard)
+    assert ratio == 1.0 and matched == [True, True, True] and "trzydzieści" in heardset
+    assert heard[0][0] == "30" and [h[0] for h in heard] == ["30", "rolek", "konkurencji"]
+    assert make.word_hits(["Trzydzieści", "rolek", "konkurencji"], [0, 1, 2], matched, heardset) == [True, True, True]

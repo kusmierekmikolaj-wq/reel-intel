@@ -1,5 +1,6 @@
 import React from "react";
 import { interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
+import { MASCOT } from "./layout";
 
 const SIGNAL = "#FFC24B";
 const LINE = "#8FB4FF";
@@ -34,7 +35,8 @@ export const Mascot: React.FC<MascotProps> = ({ vis, mouth, emph, scanning, size
   const f = useCurrentFrame();
   const { fps } = useVideoConfig();
   const at = (a: number[], i: number) => a[Math.max(0, Math.min(a.length - 1, i))] || 0;
-  const enter = spring({ frame: f, fps, config: { damping: 16, stiffness: 90 } });
+  const enter = spring({ frame: f + 10, fps, config: { damping: 16, stiffness: 90 } });                    // already on its way at frame 0: the first frame is the cover in the feed, it must not be empty
+  const rise = (1 - enter) * 110;                                              // it enters from a little below its place, not across the text (layout.ts keeps that space free)
   const bob = Math.sin(f / 17) * 9 + Math.sin(f / 5) * 1.2 * at(mouth, f);
   const tilt = Math.sin(f / 43) * 2.4 + emph * 2.5;
   const cyc = f % 104;                                                         // a blink about every 3.5 s
@@ -61,8 +63,8 @@ export const Mascot: React.FC<MascotProps> = ({ vis, mouth, emph, scanning, size
   const antX = 260 + Math.sin(f / 11) * 11 + tilt * 2;                         // the antenna bulb lags behind the head
   const bracket = scanning ? 0.5 + 0.5 * Math.sin(f / 5) : 0;
   return (
-    <div style={{ width: size * (660 / 520), height: size * (560 / 520), transform: `translateY(${(1 - enter) * 420 + bob}px) rotate(${tilt}deg) scale(${squash}, ${1 + (1 - squash) * 0.6})`, transformOrigin: "50% 92%", opacity: Math.min(1, enter * 2) }}>
-      <svg viewBox="-70 0 660 560" width="100%" height="100%">
+    <div style={{ width: size * (MASCOT.viewW / MASCOT.ref), height: size * (MASCOT.viewH / MASCOT.ref), transform: `translateY(${rise + bob}px) rotate(${tilt}deg) scale(${squash}, ${1 + (1 - squash) * 0.6})`, transformOrigin: "50% 92%", opacity: Math.min(1, enter * 2) }}>
+      <svg viewBox={`-70 0 ${MASCOT.viewW} ${MASCOT.viewH}`} width="100%" height="100%">
         <defs>
           <linearGradient id="core" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#1f52a6" /><stop offset="1" stopColor="#0c1c40" /></linearGradient>
           <linearGradient id="body" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#1a4388" /><stop offset="1" stopColor="#0d2250" /></linearGradient>

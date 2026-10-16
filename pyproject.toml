@@ -32,7 +32,7 @@ reel-intel-mcp = "reel_intel.mcp_server:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-reel_intel = ["data/*", "demo/*", "demo/data/*/*"]
+reel_intel = ["data/*", "demo/*", "demo/data/*/*", "quality/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -77,10 +77,10 @@ def write_wav(path, x):
         w.writeframes((np.clip(x, -1, 1) * 32767).astype("int16").tobytes())
 
 
-def _filtered(music, tmp_wav):
-    """the music with the very low and very high tones removed, as 24 kHz mono samples"""
+def _filtered(music, tmp_wav, hp=150):
+    """the music with the very low and very high tones removed, as 24 kHz mono samples (`hp`: the high-pass in Hz, applied twice)"""
     import numpy as np
-    r = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-stream_loop", "-1", "-i", str(music), "-t", "600", "-af", "highpass=f=150,highpass=f=150,lowpass=f=9000",
+    r = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-stream_loop", "-1", "-i", str(music), "-t", "600", "-af", f"highpass=f={hp},highpass=f={hp},lowpass=f=9000",
                         "-ac", "1", "-ar", str(SR), str(tmp_wav)], capture_output=True)
     if r.returncode != 0:
         return None
@@ -88,13 +88,14 @@ def _filtered(music, tmp_wav):
         return np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16).astype("float32") / 32768.0
 
 
-def mix_steady(voice_wav, music, out_wav, spans, volume=0.2, free=2.0):
+def mix_steady(voice_wav, music, out_wav, spans, volume=0.2, free=2.0, stem_wav=None, hp=150):
     """voice + music at a STEADY level: lower for the whole stretch in which anything is said (every pause inside it included), `free` times louder
     before and after it, with slow ramps. No side-chain compressor: its release makes the music swell in every pause like a breath.
-    spans: [(start, end)] seconds of speech"""
+    spans: [(start, end)] seconds of speech. `stem_wav`: where to write the music alone as it was mixed (same scale as the mix, same length), so that the quality
+    check can judge the music apart from the voice."""
     import numpy as np
     tmp = Path(str(out_wav) + ".music.wav")
-    m = _filtered(music, tmp)
+    m = _filtered(music, tmp, hp)
     tmp.unlink(missing_ok=True)
     if m is None:
         return False
@@ -109,10 +110,17 @@ def mix_steady(voice_wav, music, out_wav, spans, volume=0.2, free=2.0):
     ramp = lambda x, width: np.clip(x / width, 0, 1)
     inside = np.minimum(ramp(t - lo, 1.2), ramp(hi - t, 1.5))                 # 0 outside the speech, 1 inside, slow edges
     gain = volume * (free - (free - 1.0) * inside)
-    out = v + m * gain
+    stem = m * gain
+    out = v + stem
     peak = float(np.max(np.abs(out)))
-    if peak > 0.95:
-        out = out * (0.95 / peak)
+    scale = 0.95 / peak if peak > 0.95 else 1.0
+    out = out * scale
+    if stem_wav:
+        with wave.open(str(stem_wav), "wb") as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(sr)
+            w.writeframes((np.clip(stem * scale, -1, 1) * 32767).astype("int16").tobytes())
     with wave.open(str(out_wav), "wb") as w:
         w.setnchannels(1)
         w.setsampwidth(2)

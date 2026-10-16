@@ -1,0 +1,999 @@
+{
+ "tag": "after",
+ "safe": {
+  "x": [
+   90,
+   990
+  ],
+  "y": [
+   270,
+   1480
+  ]
+ },
+ "cases": {
+  "s1c1": {
+   "has_slogan": true,
+   "has_chips": false,
+   "has_mascot": true,
+   "mascot_boxes": {
+    "27": [
+     317,
+     209,
+     772,
+     752
+    ],
+    "80": [
+     272,
+     193,
+     776,
+     737
+    ]
+   },
+   "blocks": [
+    {
+     "kind": "slogan",
+     "lines": 1,
+     "pitch": null,
+     "box": [
+      290,
+      835,
+      801,
+      933
+     ]
+    },
+    {
+     "kind": "caption",
+     "lines": 1,
+     "pitch": null,
+     "box": [
+      368,
+      1130,
+      708,
+      1192
+     ]
+    }
+   ],
+   "bars": [
+    [
+     90,
+     150,
+     449,
+     157
+    ]
+   ],
+   "card": [
+    90,
+    1058,
+    989,
+    1260
+   ],
+   "violations": []
+  },
+  "s1c5": {
+   "has_slogan": true,
+   "has_chips": false,
+   "has_mascot": true,
+   "mascot_boxes": {
+    "27": [
+     322,
+     212,
+     766,
+     741
+    ],
+    "80": [
+     279,
+     195,
+     770,
+     726
+    ]
+   },
+   "blocks": [
+    {
+     "kind": "slogan",
+     "lines": 1,
+     "pitch": null,
+     "box": [
+      309,
+      782,
+      781,
+      873
+     ]
+    },
+    {
+     "kind": "caption",
+     "lines": 5,
+     "pitch": 81.0,
+     "box": [
+      167,
+      1024,
+      909,
+      1405
+     ]
+    }
+   ],
+   "bars": [
+    [
+     90,
+     150,
+     449,
+     157
+    ]
+   ],
+   "card": [
+    90,
+    955,
+    989,
+    1469
+   ],
+   "violations": []
+  },
+  "s3c1": {
+   "has_slogan": true,
+   "has_chips": false,
+   "has_mascot": true,
+   "mascot_boxes": {
+    "27": [
+     334,
+     216,
+     754,
+     716
+    ],
+    "80": [
+     292,
+     199,
+     758,
+     701
+    ]
+   },
+   "blocks": [
+    {
+     "kind": "slogan",
+     "lines": 3,
+     "pitch": 162.0,
+     "box": [
+      266,
+      759,
+      823,
+      1182
+     ]
+    },
+    {
+     "kind": "caption",
+     "lines": 1,
+     "pitch": null,
+     "box": [
+      368,
+      1339,
+      708,
+      1401
+     ]
+    }
+   ],
+   "bars": [
+    [
+     90,
+     150,
+     449,
+     157
+    ]
+   ],
+   "card": [
+    90,
+    1267,
+    989,
+    1469
+   ],
+   "violations": []
+  },
+  "s3c5": {
+   "has_slogan": true,
+   "has_chips": false,
+   "has_mascot": true,
+   "mascot_boxes": {
+    "27": [
+     342,
+     218,
+     745,
+     698
+    ],
+    "80": [
+     302,
+     201,
+     749,
+     683
+    ]
+   },
+   "blocks": [
+    {
+     "kind": "slogan",
+     "lines": 2,
+     "pitch": 129.0,
+     "box": [
+      111,
+      739,
+      976,
+      947
+     ]
+    },
+    {
+     "kind": "caption",
+     "lines": 5,
+     "pitch": 70.0,
+     "box": [
+      195,
+      1083,
+      885,
+      1412
+     ]
+    }
+   ],
+   "bars": [
+    [
+     90,
+     150,
+     449,
+     157
+    ]
+   ],
+   "card": [
+    90,
+    1022,
+    989,
+    1469
+   ],
+   "violations": []
+  },
+  "s4c1": {
+   "has_slogan": true,
+   "has_chips": false,
+   "has_mascot": true,
+   "mascot_boxes": {
+    "27": [
+     376,
+     230,
+     711,
+     629
+    ],
+    "80": [
+     343,
+     213,
+     714,
+     613
+    ]
+   },
+   "blocks": [
+    {
+     "kind": "slogan",
+     "lines": 5,
+     "pitch": 119.0,
+     "box": [
+      165,
+      670,
+      919,
+      1238
+     ]
+    },
+    {
+     "kind": "caption",
+     "lines": 1,
+     "pitch": null,
+     "box": [
+      391,
+      1355,
+      685,
+      1408
+     ]
+    }
+   ],
+   "bars": [
+    [
+     90,
+     150,
+     449,
+     157
+    ]
+   ],
+   "card": [
+    90,
+    1290,
+    989,
+    1469
+   ],
+   "violations": []
+  },
+  "s4c5": {
+   "has_slogan": true,
+   "has_chips": false,
+   "has_mascot": true,
+   "mascot_boxes": {
+    "27": null,
+    "80": null
+   },
+   "blocks": [
+    {
+     "kind": "slogan",
+     "lines": 5,
+     "pitch": 112.0,
+     "box": [
+      188,
+      334,
+      895,
+      869
+     ]
+    },
+    {
+     "kind": "caption",
+     "lines": 5,
+     "pitch": 68.8,
+     "box": [
+      158,
+      1045,
+      918,
+      1369
+     ]
+    }
+   ],
+   "bars": [
+    [
+     90,
+     150,
+     449,
+     157
+    ]
+   ],
+   "card": [
+    90,
+    984,
+    989,
+    1426
+   ],
+   "violations": []
+  },
+  "s3c3chips": {
+   "has_slogan": true,
+   "has_chips": true,
+   "has_mascot": true,
+   "mascot_boxes": {
+    "27": [
+     378,
+     231,
+     708,
+     625
+    ],
+    "80": [
+     345,
+     214,
+     711,
+     609
+    ]
+   },
+   "blocks": [
+    {
+     "kind": "slogan",
+     "lines": 2,
+     "pitch": 120.0,
+     "box": [
+      133,
+      665,
+      953,
+      859
+     ]
+    },
+    {
+     "kind": "chips",
+     "lines": 2,
+     "pitch": 110.0,
+     "box": [
+      174,
+      955,
+      905,
+      1100
+     ]
+    },
+    {
+     "kind": "caption",
+     "lines": 3,
+     "pitch": 69.0,
+     "box": [
+      234,
+      1226,
+      843,
+      1401
+     ]
+    }
+   ],
+   "bars": [
+    [
+     90,
+     150,
+     449,
+     157
+    ]
+   ],
+   "card": [
+    90,
+    1165,
+    989,
+    1469
+   ],
+   "violations": []
+  },
+  "s4c5chips": {
+   "has_slogan": true,
+   "has_chips": true,
+   "has_mascot": true,
+   "mascot_boxes": {
+    "27": null,
+    "80": null
+   },
+   "blocks": [
+    {
+     "kind": "slogan",
+     "lines": 5,
+     "pitch": 112.0,
+     "box": [
+      188,
+      334,
+      895,
+      869
+     ]
+    },
+    {
+     "kind": "caption",
+     "lines": 5,
+     "pitch": 68.8,
+     "box": [
+      158,
+      1045,
+      918,
+      1369
+     ]
+    }
+   ],
+   "bars": [
+    [
+     90,
+     150,
+     449,
+     157
+    ]
+   ],
+   "card": [
+    90,
+    984,
+    989,
+    1426
+   ],
+   "violations": []
+  },
+  "cta5": {
+   "has_slogan": false,
+   "has_chips": false,
+   "has_mascot": true,
+   "mascot_boxes": {
+    "27": [
+     382,
+     233,
+     703,
+     616
+    ],
+    "80": [
+     350,
+     216,
+     706,
+     600
+    ]
+   },
+   "blocks": [
+    {
+     "kind": "pulse",
+     "lines": 1,
+     "pitch": null,
+     "box": [
+      478,
+      755,
+      601,
+      877
+     ]
+    },
+    {
+     "kind": "caption",
+     "lines": 5,
+     "pitch": 70.0,
+     "box": [
+      195,
+      1083,
+      885,
+      1412
+     ]
+    }
+   ],
+   "bars": [
+    [
+     90,
+     150,
+     449,
+     157
+    ]
+   ],
+   "card": [
+    90,
+    1022,
+    989,
+    1469
+   ],
+   "violations": []
+  },
+  "s3c5_nomascot": {
+   "has_slogan": true,
+   "has_chips": false,
+   "has_mascot": false,
+   "blocks": [
+    {
+     "kind": "slogan",
+     "lines": 3,
+     "pitch": 162.0,
+     "box": [
+      266,
+      294,
+      823,
+      717
+     ]
+    },
+    {
+     "kind": "caption",
+     "lines": 6,
+     "pitch": 86.8,
+     "box": [
+      167,
+      905,
+      912,
+      1387
+     ]
+    }
+   ],
+   "bars": [
+    [
+     90,
+     150,
+     449,
+     157
+    ]
+   ],
+   "card": [
+    90,
+    832,
+    989,
+    1469
+   ],
+   "violations": []
+  },
+  "s4c5_nomascot": {
+   "has_slogan": true,
+   "has_chips": false,
+   "has_mascot": false,
+   "blocks": [
+    {
+     "kind": "slogan",
+     "lines": 5,
+     "pitch": 119.0,
+     "box": [
+      165,
+      297,
+      919,
+      865
+     ]
+    },
+    {
+     "kind": "caption",
+     "lines": 5,
+     "pitch": 76.0,
+     "box": [
+      168,
+      1046,
+      912,
+      1403
+     ]
+    }
+   ],
+   "bars": [
+    [
+     90,
+     150,
+     449,
+     157
+    ]
+   ],
+   "card": [
+    90,
+    981,
+    989,
+    1464
+   ],
+   "violations": []
+  }
+ },
+ "start": {
+  "0": {
+   "blocks": [
+    {
+     "kind": "slogan",
+     "lines": 2,
+     "pitch": 174.0,
+     "box": [
+      305,
+      701,
+      782,
+      960
+     ]
+    },
+    {
+     "kind": "caption",
+     "lines": 5,
+     "pitch": 43.8,
+     "box": [
+      239,
+      1220,
+      839,
+      1399
+     ]
+    }
+   ],
+   "card": [
+    90,
+    1143,
+    989,
+    1473
+   ],
+   "bars": [],
+   "mascot": [
+    361,
+    228,
+    719,
+    655
+   ],
+   "violations": []
+  },
+  "4": {
+   "blocks": [
+    {
+     "kind": "slogan",
+     "lines": 3,
+     "pitch": 159.5,
+     "box": [
+      305,
+      695,
+      782,
+      1099
+     ]
+    },
+    {
+     "kind": "caption",
+     "lines": 3,
+     "pitch": 76.0,
+     "box": [
+      204,
+      1204,
+      873,
+      1397
+     ]
+    }
+   ],
+   "card": [
+    90,
+    1140,
+    989,
+    1470
+   ],
+   "bars": [
+    [
+     90,
+     150,
+     119,
+     157
+    ]
+   ],
+   "mascot": [
+    330,
+    222,
+    721,
+    648
+   ],
+   "violations": []
+  },
+  "9": {
+   "blocks": [
+    {
+     "kind": "slogan",
+     "lines": 3,
+     "pitch": 140.5,
+     "box": [
+      305,
+      695,
+      782,
+      1061
+     ]
+    },
+    {
+     "kind": "caption",
+     "lines": 3,
+     "pitch": 76.0,
+     "box": [
+      204,
+      1203,
+      873,
+      1396
+     ]
+    }
+   ],
+   "card": [
+    90,
+    1139,
+    989,
+    1469
+   ],
+   "bars": [
+    [
+     90,
+     150,
+     157,
+     157
+    ]
+   ],
+   "mascot": [
+    338,
+    221,
+    721,
+    650
+   ],
+   "violations": []
+  },
+  "12": {
+   "blocks": [
+    {
+     "kind": "slogan",
+     "lines": 3,
+     "pitch": 138.5,
+     "box": [
+      305,
+      696,
+      782,
+      1058
+     ]
+    },
+    {
+     "kind": "caption",
+     "lines": 3,
+     "pitch": 76.0,
+     "box": [
+      204,
+      1203,
+      873,
+      1396
+     ]
+    }
+   ],
+   "card": [
+    90,
+    1138,
+    989,
+    1469
+   ],
+   "bars": [
+    [
+     90,
+     150,
+     179,
+     157
+    ]
+   ],
+   "mascot": [
+    356,
+    224,
+    722,
+    651
+   ],
+   "violations": []
+  },
+  "16": {
+   "blocks": [
+    {
+     "kind": "slogan",
+     "lines": 3,
+     "pitch": 138.5,
+     "box": [
+      305,
+      696,
+      782,
+      1058
+     ]
+    },
+    {
+     "kind": "caption",
+     "lines": 3,
+     "pitch": 76.0,
+     "box": [
+      202,
+      1203,
+      873,
+      1396
+     ]
+    }
+   ],
+   "card": [
+    90,
+    1138,
+    989,
+    1469
+   ],
+   "bars": [
+    [
+     90,
+     150,
+     209,
+     157
+    ]
+   ],
+   "mascot": [
+    364,
+    224,
+    722,
+    653
+   ],
+   "violations": []
+  },
+  "24": {
+   "blocks": [
+    {
+     "kind": "slogan",
+     "lines": 3,
+     "pitch": 139.0,
+     "box": [
+      305,
+      696,
+      782,
+      1059
+     ]
+    },
+    {
+     "kind": "caption",
+     "lines": 3,
+     "pitch": 76.0,
+     "box": [
+      204,
+      1203,
+      873,
+      1396
+     ]
+    }
+   ],
+   "card": [
+    90,
+    1138,
+    989,
+    1469
+   ],
+   "bars": [
+    [
+     90,
+     150,
+     269,
+     157
+    ]
+   ],
+   "mascot": [
+    365,
+    226,
+    724,
+    655
+   ],
+   "violations": []
+  }
+ },
+ "transition": {
+  "kind": "pixels",
+  "rows": [
+   {
+    "frame": 70,
+    "ink_A": 96507,
+    "ink_B": 0,
+    "both": false
+   },
+   {
+    "frame": 77,
+    "ink_A": 96472,
+    "ink_B": 0,
+    "both": false
+   },
+   {
+    "frame": 78,
+    "ink_A": 96212,
+    "ink_B": 0,
+    "both": false
+   },
+   {
+    "frame": 79,
+    "ink_A": 101612,
+    "ink_B": 0,
+    "both": false
+   },
+   {
+    "frame": 80,
+    "ink_A": 90220,
+    "ink_B": 0,
+    "both": false
+   },
+   {
+    "frame": 81,
+    "ink_A": 40108,
+    "ink_B": 0,
+    "both": false
+   },
+   {
+    "frame": 82,
+    "ink_A": 0,
+    "ink_B": 0,
+    "both": false
+   },
+   {
+    "frame": 83,
+    "ink_A": 0,
+    "ink_B": 0,
+    "both": false
+   },
+   {
+    "frame": 84,
+    "ink_A": 0,
+    "ink_B": 0,
+    "both": false
+   },
+   {
+    "frame": 85,
+    "ink_A": 0,
+    "ink_B": 0,
+    "both": false
+   },
+   {
+    "frame": 86,
+    "ink_A": 0,
+    "ink_B": 0,
+    "both": false
+   },
+   {
+    "frame": 87,
+    "ink_A": 78,
+    "ink_B": 0,
+    "both": false
+   },
+   {
+    "frame": 88,
+    "ink_A": 237,
+    "ink_B": 25459,
+    "both": false
+   },
+   {
+    "frame": 90,
+    "ink_A": 211,
+    "ink_B": 36559,
+    "both": false
+   },
+   {
+    "frame": 94,
+    "ink_A": 515,
+    "ink_B": 115360,
+    "both": false
+   },
+   {
+    "frame": 112,
+    "ink_A": 1093,
+    "ink_B": 173643,
+    "both": false
+   }
+  ],
+  "ghost_frames": [],
+  "settled": {
+   "A": 96507,
+   "B": 173643
+  }
+ }
+}
