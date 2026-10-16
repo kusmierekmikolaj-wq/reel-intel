@@ -190,3 +190,34 @@ def test_speech_end_finds_a_last_word_the_recognizer_missed(tmp_path):
     p = tmp_path / "v.wav"
     music.write_wav(p, x)
     assert abs(make.speech_end(p) - (1.0 + 0.5 + 1 / 3)) < 0.05            # the quiet gap does not end the speech, the last "word" does
+
+
+def test_slow_wav_lengthens_the_voice_without_changing_it_otherwise(tmp_path):
+    if shutil.which("ffmpeg") is None:
+        pytest.skip("ffmpeg is not installed on this machine")
+    from reel_intel import music
+    import numpy as np
+    p = tmp_path / "v.wav"
+    music.write_wav(p, np.sin(np.linspace(0, 2000, int(2 * music.SR))) * 0.4)
+    make.slow_wav(p, 0.93)
+    dur = make._wav_info(p)[0]
+    assert 2.0 / 0.93 - 0.08 < dur < 2.0 / 0.93 + 0.08
+
+
+def test_timeline_with_a_voice_slows_it_and_keeps_the_scene_timing(tmp_path, monkeypatch):
+    """the path through a real voice file (the tests above stub the voice out, which once hid a missing function)"""
+    if shutil.which("ffmpeg") is None:
+        pytest.skip("ffmpeg is not installed on this machine")
+    from reel_intel import music
+    import numpy as np
+
+    def fake_tts(text, lang, out, rate=0, engine="sapi"):
+        music.write_wav(out, np.sin(np.linspace(0, 1500, int(1.0 * music.SR))) * 0.4)
+        return True
+    monkeypatch.setattr(make, "tts", fake_tts)
+    monkeypatch.setattr(make, "align_words", lambda *a, **k: (None, None, None, set()))
+    s = good()
+    s["speed"] = 0.9
+    scenes, total, audio = make.timeline(s, tmp_path)
+    assert audio is not None and abs((scenes[0]["end"] - scenes[0]["start"]) - 1.0 / 0.9) < 0.08
+    assert total > scenes[-1]["end"]

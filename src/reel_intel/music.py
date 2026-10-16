@@ -44,7 +44,7 @@ def bed(seconds, bpm=104, seed=7):
         add(k * clen, pad * env * 0.045)
         bt = np.arange(int(beat * 0.5 * SR)) / SR                               # bass: eighth notes on the root
         for j in range(16):
-            f = _midi(root - 12)
+            f = _midi(root)
             note = np.sin(2 * np.pi * f * bt) * np.exp(-bt * 7) + 0.4 * np.sin(2 * np.pi * 2 * f * bt) * np.exp(-bt * 12)
             add(k * clen + j * beat * 0.5, note * (0.16 if j % 2 == 0 else 0.1))
         pl = np.arange(int(beat * 0.5 * SR)) / SR                                # pluck line: chord tones going up and down
@@ -77,9 +77,53 @@ def write_wav(path, x):
         w.writeframes((np.clip(x, -1, 1) * 32767).astype("int16").tobytes())
 
 
+def _filtered(music, tmp_wav):
+    """the music with the very low and very high tones removed, as 24 kHz mono samples"""
+    import numpy as np
+    r = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-stream_loop", "-1", "-i", str(music), "-t", "600", "-af", "highpass=f=150,highpass=f=150,lowpass=f=9000",
+                        "-ac", "1", "-ar", str(SR), str(tmp_wav)], capture_output=True)
+    if r.returncode != 0:
+        return None
+    with wave.open(str(tmp_wav)) as w:
+        return np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16).astype("float32") / 32768.0
+
+
+def mix_steady(voice_wav, music, out_wav, spans, volume=0.2, free=2.0):
+    """voice + music at a STEADY level: lower for the whole stretch in which anything is said (every pause inside it included), `free` times louder
+    before and after it, with slow ramps. No side-chain compressor: its release makes the music swell in every pause like a breath.
+    spans: [(start, end)] seconds of speech"""
+    import numpy as np
+    tmp = Path(str(out_wav) + ".music.wav")
+    m = _filtered(music, tmp)
+    tmp.unlink(missing_ok=True)
+    if m is None:
+        return False
+    with wave.open(str(voice_wav)) as w:
+        sr = w.getframerate()
+        v = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16).astype("float32") / 32768.0
+    n = len(v)
+    m = np.resize(m, n) if len(m) < n else m[:n]
+    lo = min(s for s, _e in spans) - 0.4 if spans else 0.0
+    hi = max(e for _s, e in spans) + 0.6 if spans else 0.0
+    t = np.arange(n) / sr
+    ramp = lambda x, width: np.clip(x / width, 0, 1)
+    inside = np.minimum(ramp(t - lo, 1.2), ramp(hi - t, 1.5))                 # 0 outside the speech, 1 inside, slow edges
+    gain = volume * (free - (free - 1.0) * inside)
+    out = v + m * gain
+    peak = float(np.max(np.abs(out)))
+    if peak > 0.95:
+        out = out * (0.95 / peak)
+    with wave.open(str(out_wav), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(sr)
+        w.writeframes((np.clip(out, -1, 1) * 32767).astype("int16").tobytes())
+    return True
+
+
 def mix(voice_wav, music, out_wav, volume=0.38):
     """voice + music, the music ducked while the voice speaks; `music` is a wav/mp3 path (looped if shorter than the voice). Returns True on success"""
-    fc = (f"[1:a]aresample=24000,highpass=f=120,lowpass=f=9000,volume={volume}[m];[m][0:a]sidechaincompress=threshold=0.02:ratio=10:attack=15:release=600[duck];"
+    fc = (f"[1:a]aresample=24000,highpass=f=150,highpass=f=150,lowpass=f=9000,volume={volume}[m];[m][0:a]sidechaincompress=threshold=0.02:ratio=10:attack=15:release=600[duck];"
           "[0:a][duck]amix=inputs=2:duration=first:normalize=0,alimiter=limit=0.95[a]")
     r = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(voice_wav), "-stream_loop", "-1", "-i", str(music), "-filter_complex", fc,
                         "-map", "[a]", "-ac", "1", "-ar", "24000", str(out_wav)], capture_output=True, text=True)

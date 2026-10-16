@@ -495,8 +495,10 @@ def pick_take(takes, lang, toks):
     return best
 
 
-def speech_end(path, floor_db=-38.0):
-    """seconds at which the voice file last rises above `floor_db` relative to its loudest 20 ms (None if unreadable)"""
+def speech_end(path, rel_db=-24.0):
+    """seconds at which the voice file last rises above `rel_db` relative to its usual speech level (the 90th percentile of its 20 ms frames).
+    The voice engine ends a sentence with a quiet breathy tail, 20-35 dB under the speech; speech recognition counts it as part of the last word,
+    the level does not."""
     import numpy as np
     try:
         with wave.open(str(path)) as w:
@@ -508,12 +510,21 @@ def speech_end(path, floor_db=-38.0):
     e = np.array([np.sqrt(np.mean(x[i:i + hop] ** 2)) + 1e-9 for i in range(0, len(x) - hop, hop)])
     if not len(e):
         return None
-    db = 20 * np.log10(e / e.max())
-    loud = np.where(db > floor_db)[0]
+    db = 20 * np.log10(e)
+    loud = np.where(db > np.percentile(db, 90) + rel_db)[0]
     return float((loud[-1] + 1) * hop / sr) if len(loud) else None
 
 
-def trim_wav(path, seconds):
+def slow_wav(path, speed):
+    """the voice at `speed` times its pace (0.93 = 7% slower) with the pitch unchanged"""
+    tmp = Path(str(path) + ".tempo.wav")
+    r = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(path), "-filter:a", f"atempo={speed}", "-c:a", "pcm_s16le", str(tmp)], capture_output=True)
+    if r.returncode == 0 and tmp.exists():
+        tmp.replace(path)
+    tmp.unlink(missing_ok=True)
+
+
+def trim_wav(path, seconds, fade=0.06):
     """cut a voice file to `seconds` with a short fade-out: the silence the voice engine leaves after the last word would only lengthen the gap"""
     import numpy as np
     with wave.open(str(path)) as w:
@@ -521,7 +532,7 @@ def trim_wav(path, seconds):
         x = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16)
     n = int(seconds * sr) * ch
     x = x[:n].astype("float32")
-    f = min(len(x), int(0.06 * sr) * ch)
+    f = min(len(x), int(fade * sr) * ch)
     if f:
         x[-f:] *= np.linspace(1, 0, f)
     with wave.open(str(path), "wb") as w:
@@ -548,6 +559,9 @@ def timeline(script, tmp):
         dur = None
         say_text, toks, owner = spoken_form(text, script["lang"], script.get("say"))
         if have_voice and ((prebuilt and wav.exists()) or tts(say_text, script["lang"], str(wav), script.get("rate", 0), engine)):
+            speed = float(script.get("speed", 0.93))
+            if 0.5 <= speed < 0.999:                                           # a calmer pace without a deeper voice
+                slow_wav(wav, speed)
             dur, sr, ch, sw = _wav_info(wav)
         else:
             have_voice = False
@@ -565,15 +579,14 @@ def timeline(script, tmp):
         tail = 0.0
         if al and heard >= 0.5:
             end_words = al[-1][1]
-            end_sound = speech_end(wav)                                        # the last moment the voice is really loud: a word the recognizer
-            end = max(end_words, end_sound or 0.0)                             # missed (e.g. "AI") must not be cut off
+            end_sound = speech_end(wav)                                        # where the voice really stops being speech: a word the recognizer
+            end = end_sound if end_sound else end_words                        # missed ("AI") is kept, the breathy tail it counted is not
             tail = max(0.0, dur - end)
-            keep = end + 0.18
-            if dur - keep > 0.05:                                              # dead air after the last word: cut it
-                trim_wav(wav, keep)
+            keep = end + 0.1
+            if dur - keep > 0.05:                                              # breath, murmur and dead air after the last word: cut it
+                trim_wav(wav, keep, fade=0.08)
                 dur = keep
-            if end > end_words + 0.1 and al:                                   # stretch the last word to where the sound really ends
-                al[-1] = (al[-1][0], end)
+            al[-1] = (al[-1][0], min(max(end, al[-1][0] + 0.05), al[-1][1]) if end < end_words else end)
         c, words = 0, []
         for k, w in enumerate(ws):
             if al:
@@ -764,7 +777,7 @@ def studio_dir():
     return d if (d / "node_modules" / ".bin").is_dir() and (d / "src" / "Reel.tsx").exists() else None
 
 
-def final_audio(script, voice, total, tmp):
+def final_audio(script, voice, total, tmp, scenes=None):
     """the voice with a music bed under it (unless the script says "music": "off"); the voice alone when there is none or the mix fails"""
     mode = script.get("music", "bed")
     if not voice or mode == "off":
@@ -777,7 +790,10 @@ def final_audio(script, voice, total, tmp):
         src = Path(tmp) / "bed.wav"
         music.write_wav(src, music.bed(total + 1))
     mixed = Path(tmp) / "mixed.wav"
-    return mixed if music.mix(voice, src, mixed, float(script.get("music_volume", 0.38))) else voice
+    spans = [(s["words"][0][1], s["words"][-1][2]) for s in (scenes or []) if s["words"]]
+    vol = float(script.get("music_volume", 0.2))
+    ok = music.mix_steady(voice, src, mixed, spans, vol) if spans else music.mix(voice, src, mixed, vol)
+    return mixed if ok else voice
 
 
 def render_remotion(script, scenes, total, audio, out, studio, play=None):
@@ -814,7 +830,7 @@ def render(script, out_mp4, simple=False):
     with tempfile.TemporaryDirectory(prefix="reelmake_") as tmp:
         scenes, total, audio = timeline(script, tmp)
         studio = None if simple else studio_dir()
-        play = final_audio(script, audio, total, tmp)
+        play = final_audio(script, audio, total, tmp, scenes)
         side = {"total": total, "mouth": mouth_track(audio, scenes, total) if audio else [],
                 "scenes": [{"text": s["text"], "screen": s["screen"], "start": s["start"], "end": s["end"], "heard": s.get("heard"), "missed": s.get("missed", []), "tail": s.get("tail", 0),
                             "words": [[w, a, b] for w, a, b in s["words"]]} for s in scenes]}

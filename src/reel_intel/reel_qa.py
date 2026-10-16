@@ -72,6 +72,55 @@ def gaps(final, sr, scenes):
     return out
 
 
+def flatness(x):
+    """0 = a pure tone, 1 = white noise (spectral flatness)"""
+    import numpy as np
+    if len(x) < 256:
+        return 0.0
+    s = np.abs(np.fft.rfft(x * np.hanning(len(x)))) ** 2 + 1e-12
+    return float(np.exp(np.mean(np.log(s))) / np.mean(s))
+
+
+def soft_tail(x, sr):
+    """seconds of quiet-but-audible sound after the last speech in `x`: frames between 24 and 45 dB under the usual speech level, after the last speech frame"""
+    import numpy as np
+    hop = max(1, int(sr * 0.02))
+    n = (len(x) - hop) // hop
+    if n < 5:
+        return 0.0
+    db = np.array([_db(x[i * hop:(i + 1) * hop]) for i in range(n)])
+    p = float(np.percentile(db, 90))
+    speech = np.where(db > p - 24)[0]
+    if not len(speech):
+        return 0.0
+    after = db[speech[-1] + 1:]
+    return float(np.sum((after > p - 45)) * hop / sr)
+
+
+def breaths(scenes, voice_x, sr):
+    """sound that is neither silence nor speech inside the voice track: before the first word, between words, after the last word.
+    A breath, a mouth noise or a trailing murmur is quiet but noisy (high spectral flatness) and louder than the room"""
+    out = []
+    for i, s in enumerate(scenes, 1):
+        w = s["words"]
+        if not w:
+            continue
+        st = soft_tail(voice_x[int(s["start"] * sr):int(s["end"] * sr)], sr)
+        if st > 0.12:
+            out.append(("WARN", "VOICE_BREATH", f"scene {i}: {st:.2f} s of a quiet breathy tail after the last word (a breath or a trailing murmur)"))
+        speech = _db(voice_x[int(w[0][1] * sr):int(w[-1][2] * sr)])
+        spots = [("before the first word", s["start"], w[0][1] - 0.04), ("after the last word", w[-1][2] + 0.04, s["end"])]
+        spots += [(f"between '{a[0]}' and '{b[0]}'", a[2] + 0.04, b[1] - 0.04) for a, b in zip(w, w[1:]) if b[1] - a[2] > 0.25]
+        for where, a, b in spots:
+            seg = voice_x[int(max(0, a) * sr):int(b * sr)]
+            if len(seg) < sr * 0.1:
+                continue
+            lvl = _db(seg)
+            if lvl > speech - 32 and lvl > -52 and flatness(seg) > 0.12:
+                out.append(("WARN", "VOICE_BREATH", f"scene {i}: a breath or noise {where} ({lvl:.0f} dB, {lvl - speech:.0f} dB under the speech, noisy)"))
+    return out
+
+
 def voice(scenes, voice_x, sr):
     """checks on the voice track alone"""
     out = []
@@ -164,7 +213,7 @@ def media(mp4):
 def check(sidecar, final, sr, voice_x, mouth_env=None):
     """all the audio checks on samples already in memory"""
     scenes = sidecar["scenes"]
-    res = gaps(final, sr, scenes) + voice(scenes, voice_x, sr) + mix(final, sr, voice_x)
+    res = gaps(final, sr, scenes) + voice(scenes, voice_x, sr) + breaths(scenes, voice_x, sr) + mix(final, sr, voice_x)
     if mouth_env:
         res += mouth(mouth_env, voice_x, sr)
     return res
@@ -232,6 +281,20 @@ def selftest():
     for sc in s["scenes"]:
         sc["end"] = sc["end"] - 0.4                                             # the scene ends while the voice is still going
     cases.append(("last word chopped", x, s, "VOICE_CUT"))
+    x, s = build(0.6)
+    rng = np.random.default_rng(3)
+    word_end = s["scenes"][0]["words"][-1][2]
+    k = int((word_end + 0.1) * sr)
+    x = x.copy()
+    x[k:k + int(0.25 * sr)] += (rng.standard_normal(int(0.25 * sr)) * 10 ** (-34 / 20)).astype("float32")      # a breath right after the first sentence
+    s["scenes"][0]["end"] = word_end + 0.45
+    cases.append(("breath after a sentence", x, s, "VOICE_BREATH"))
+    x, s = build(0.6)
+    k = int(s["scenes"][1]["words"][-1][2] * sr)
+    x = x.copy()
+    x[k:k + int(0.4 * sr)] += tone(0.4, -48, 220)[:int(0.4 * sr)]                       # the voice trails off into a long soft breath
+    s["scenes"][1]["end"] = s["scenes"][1]["words"][-1][2] + 0.5
+    cases.append(("breathy tail after the last word", x, s, "VOICE_BREATH"))
     x, s = build(0.3)
     x = np.clip(x * 12, -1, 1)
     cases.append(("clipping", x, s, "MIX_CLIP"))
